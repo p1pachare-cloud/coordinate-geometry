@@ -1,0 +1,1826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Civic Grid — Coordinate Geometry</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* =========================================================
+   DESIGN TOKENS — "Civic Grid": a city-surveyor's blueprint.
+   Deep blueprint navy + cyan gridlines + amber/mint signal
+   accents, standing in for a planner's drafting table.
+   ========================================================= */
+:root{
+  --ink-0:#0A1B2E;      /* deepest background */
+  --ink-1:#0F2842;      /* panel background */
+  --ink-2:#153554;      /* raised panel / hover */
+  --ink-3:#1C4368;      /* borders on dark */
+  --grid-line: rgba(120,178,222,0.16);
+  --grid-line-strong: rgba(120,178,222,0.34);
+  --chalk:#EAF1F6;      /* primary text on dark */
+  --chalk-dim:#A9C1D4;  /* secondary text on dark */
+  --paper:#F3F0E6;      /* light panel (worked examples) */
+  --paper-ink:#152233;  /* text on paper */
+  --amber:#F2A63A;      /* primary accent / CTA */
+  --amber-ink:#3A2405;
+  --mint:#57D6AE;       /* success / go */
+  --mint-ink:#063527;
+  --coral:#F0685A;      /* error / stop */
+  --violet:#9C8CF0;     /* tertiary marker color */
+  --radius-s:6px;
+  --radius-m:10px;
+  --radius-l:16px;
+  --font-head:'Archivo', sans-serif;
+  --font-body:'IBM Plex Sans', sans-serif;
+  --font-mono:'IBM Plex Mono', monospace;
+  --shadow-panel: 0 1px 0 rgba(255,255,255,0.04) inset, 0 10px 30px rgba(0,0,0,0.35);
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:
+    radial-gradient(ellipse at 20% -10%, rgba(87,214,174,0.07), transparent 45%),
+    radial-gradient(ellipse at 90% 0%, rgba(242,166,58,0.08), transparent 40%),
+    var(--ink-0);
+  color:var(--chalk);
+  font-family:var(--font-body);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{font-family:var(--font-head); margin:0; letter-spacing:-0.01em;}
+p{line-height:1.55; color:var(--chalk-dim); margin:0 0 12px;}
+button{font-family:var(--font-body); cursor:pointer;}
+:focus-visible{outline:2px solid var(--amber); outline-offset:2px;}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+}
+.mono{font-family:var(--font-mono);}
+
+/* ---------- App shell ---------- */
+#app{display:flex; flex-direction:column; min-height:100vh;}
+
+.topbar{
+  display:flex; align-items:center; gap:18px;
+  padding:14px 22px;
+  border-bottom:1px solid var(--ink-3);
+  background:linear-gradient(180deg, rgba(21,53,84,0.9), rgba(15,40,66,0.7));
+  position:sticky; top:0; z-index:30;
+  backdrop-filter:blur(6px);
+}
+.brand{display:flex; align-items:center; gap:10px; flex-shrink:0;}
+.brand-mark{
+  width:34px; height:34px; border-radius:8px;
+  background:
+    linear-gradient(135deg, var(--amber), #E8892A);
+  display:flex; align-items:center; justify-content:center;
+  color:var(--amber-ink); font-family:var(--font-head); font-weight:800; font-size:15px;
+}
+.brand-text{display:flex; flex-direction:column; line-height:1.1;}
+.brand-text b{font-family:var(--font-head); font-size:15px; font-weight:700;}
+.brand-text span{font-size:11px; color:var(--chalk-dim); font-family:var(--font-mono);}
+
+.line-rail{flex:1; overflow-x:auto; overflow-y:hidden;}
+.line-track{
+  display:flex; align-items:center; min-width:max-content; position:relative; height:44px; padding:0 6px;
+}
+.line-track::before{
+  content:''; position:absolute; left:20px; right:20px; top:50%; height:2px;
+  background:var(--ink-3); transform:translateY(-50%); z-index:0;
+}
+.stop{
+  position:relative; z-index:1; display:flex; flex-direction:column; align-items:center;
+  gap:6px; width:78px; flex-shrink:0; background:none; border:none; padding:6px 2px; color:var(--chalk-dim);
+}
+.stop .dot{
+  width:14px; height:14px; border-radius:50%; background:var(--ink-2); border:2px solid var(--ink-3);
+  transition:background .2s, border-color .2s, transform .2s;
+}
+.stop.done .dot{background:var(--mint); border-color:var(--mint);}
+.stop.current .dot{background:var(--amber); border-color:var(--amber); transform:scale(1.25); box-shadow:0 0 0 4px rgba(242,166,58,0.2);}
+.stop.locked{opacity:0.4; cursor:not-allowed;}
+.stop:not(.locked):hover .dot{border-color:var(--amber);}
+.stop .label{font-size:10.5px; text-align:center; line-height:1.2; font-family:var(--font-mono); white-space:nowrap;}
+.stop.current .label{color:var(--chalk); font-weight:600;}
+
+.score-chip{
+  flex-shrink:0; display:flex; align-items:center; gap:8px; background:var(--ink-2);
+  border:1px solid var(--ink-3); border-radius:999px; padding:6px 12px; font-family:var(--font-mono); font-size:12.5px;
+}
+.score-chip b{color:var(--amber); font-weight:600;}
+
+/* ---------- Layout: side nav + main ---------- */
+.layout{display:flex; flex:1; min-height:0;}
+.side-nav{
+  width:220px; flex-shrink:0; border-right:1px solid var(--ink-3);
+  padding:18px 10px; display:flex; flex-direction:column; gap:2px;
+  background:rgba(10,27,46,0.4);
+}
+.side-nav .nav-item{
+  display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:var(--radius-s);
+  background:none; border:none; color:var(--chalk-dim); text-align:left; font-size:13px;
+}
+.side-nav .nav-item .idx{
+  width:20px; height:20px; border-radius:50%; background:var(--ink-2); display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-mono); font-size:10px; flex-shrink:0; border:1px solid var(--ink-3);
+}
+.side-nav .nav-item.done .idx{background:var(--mint); color:var(--mint-ink); border-color:var(--mint);}
+.side-nav .nav-item.current{background:var(--ink-2); color:var(--chalk);}
+.side-nav .nav-item.current .idx{background:var(--amber); color:var(--amber-ink); border-color:var(--amber);}
+.side-nav .nav-item.locked{opacity:0.35; cursor:not-allowed;}
+.side-nav .nav-item:not(.locked):hover{background:var(--ink-2);}
+
+main{flex:1; min-width:0; padding:26px 26px 80px; overflow-x:hidden;}
+.station{max-width:920px; margin:0 auto; display:none;}
+.station.active{display:block; animation:rise .45s ease;}
+@keyframes rise{from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);}}
+
+.eyebrow-line{display:flex; align-items:center; gap:10px; margin-bottom:6px;}
+.eyebrow-line .tag{font-family:var(--font-mono); font-size:11.5px; color:var(--amber); background:rgba(242,166,58,0.12); border:1px solid rgba(242,166,58,0.3); padding:3px 9px; border-radius:999px;}
+.station h2{font-size:28px; margin-bottom:10px;}
+.station .lede{font-size:15px; max-width:64ch; margin-bottom:20px;}
+
+.panel{
+  background:var(--ink-1); border:1px solid var(--ink-3); border-radius:var(--radius-l);
+  padding:20px; margin-bottom:18px; box-shadow:var(--shadow-panel);
+}
+.panel h3{font-size:15px; color:var(--chalk); margin-bottom:10px; display:flex; align-items:center; gap:8px;}
+.panel h3 .num{font-family:var(--font-mono); font-size:11px; color:var(--ink-0); background:var(--amber); width:20px; height:20px; border-radius:5px; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+
+.sim-wrap{display:flex; gap:18px; flex-wrap:wrap;}
+.sim-canvas-box{flex:1 1 420px; min-width:280px; background:var(--ink-0); border:1px solid var(--ink-3); border-radius:var(--radius-m); overflow:hidden; position:relative;}
+.sim-canvas-box canvas{display:block; width:100%; height:auto; touch-action:none;}
+.sim-side{flex:0 0 260px; display:flex; flex-direction:column; gap:10px;}
+
+.readout{background:var(--ink-2); border:1px solid var(--ink-3); border-radius:var(--radius-s); padding:10px 12px; font-family:var(--font-mono); font-size:12.5px;}
+.readout .row{display:flex; justify-content:space-between; padding:2px 0; color:var(--chalk-dim);}
+.readout .row b{color:var(--chalk); font-weight:600;}
+
+.btn{
+  border-radius:var(--radius-s); padding:9px 16px; font-size:13px; font-weight:600; border:1px solid transparent;
+  transition:transform .12s ease, background .15s ease;
+}
+.btn:active{transform:translateY(1px);}
+.btn-primary{background:var(--amber); color:var(--amber-ink);}
+.btn-primary:hover{background:#ffb752;}
+.btn-primary:disabled{background:var(--ink-2); color:var(--chalk-dim); cursor:not-allowed; opacity:0.6;}
+.btn-ghost{background:var(--ink-2); color:var(--chalk); border-color:var(--ink-3);}
+.btn-ghost:hover{border-color:var(--amber);}
+.btn-ghost.active{border-color:var(--mint); color:var(--mint);}
+.btn-sm{padding:6px 11px; font-size:12px;}
+.btn-row{display:flex; gap:8px; flex-wrap:wrap;}
+
+.toggle-row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+
+.math-reveal{
+  margin-top:10px; background:var(--paper); color:var(--paper-ink); border-radius:var(--radius-s);
+  padding:14px 16px; font-family:var(--font-mono); font-size:13px; line-height:1.9; display:none;
+}
+.math-reveal.show{display:block;}
+.math-reveal .step{opacity:0; transform:translateY(4px); animation:stepin .3s ease forwards;}
+@keyframes stepin{to{opacity:1; transform:translateY(0);}}
+
+.example-box{display:flex; gap:14px; align-items:flex-start; background:var(--ink-2); border:1px solid var(--ink-3); border-radius:var(--radius-m); padding:14px 16px;}
+.example-box .icon{font-size:22px; flex-shrink:0; line-height:1;}
+
+.check-box{border-top:1px dashed var(--ink-3); margin-top:16px; padding-top:16px;}
+.check-q{font-size:14px; color:var(--chalk); margin-bottom:10px; font-weight:600;}
+.opt-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:8px; margin-bottom:10px;}
+.opt{background:var(--ink-2); border:1px solid var(--ink-3); border-radius:var(--radius-s); padding:9px 12px; font-size:13px; text-align:left; color:var(--chalk);}
+.opt:hover{border-color:var(--amber);}
+.opt.correct{background:rgba(87,214,174,0.18); border-color:var(--mint); color:var(--mint);}
+.opt.wrong{background:rgba(240,104,90,0.18); border-color:var(--coral); color:var(--coral);}
+.input-row{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+.input-row input[type=number], .input-row input[type=text]{
+  background:var(--ink-2); border:1px solid var(--ink-3); border-radius:var(--radius-s); color:var(--chalk);
+  padding:8px 10px; font-family:var(--font-mono); width:90px; font-size:13px;
+}
+.feedback{font-size:13px; margin-top:8px; display:none; padding:8px 12px; border-radius:var(--radius-s);}
+.feedback.show{display:block;}
+.feedback.ok{background:rgba(87,214,174,0.15); color:var(--mint);}
+.feedback.no{background:rgba(240,104,90,0.15); color:var(--coral);}
+
+.footer-nav{display:flex; justify-content:space-between; margin-top:22px;}
+
+/* Badges */
+.badge-strip{display:flex; gap:10px; flex-wrap:wrap; margin-top:6px;}
+.badge{display:flex; align-items:center; gap:8px; background:var(--ink-2); border:1px solid var(--ink-3); border-radius:999px; padding:6px 12px 6px 6px; font-size:12px;}
+.badge .medal{width:24px; height:24px; border-radius:50%; background:var(--ink-3); display:flex; align-items:center; justify-content:center; font-size:13px;}
+.badge.earned .medal{background:linear-gradient(135deg, var(--amber), #E8892A);}
+.badge.earned{border-color:var(--amber);}
+.badge.locked{opacity:0.4;}
+
+/* Games hub */
+.game-tabs{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
+.game-tab{background:var(--ink-2); border:1px solid var(--ink-3); border-radius:999px; padding:8px 16px; font-size:13px; color:var(--chalk-dim); display:flex; gap:8px; align-items:center;}
+.game-tab.active{background:var(--amber); color:var(--amber-ink); border-color:var(--amber); font-weight:600;}
+.game-tab .check{color:var(--mint); font-weight:700;}
+.game-tab.active .check{color:var(--amber-ink);}
+.game-panel{display:none;}
+.game-panel.active{display:block;}
+.hud{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:12px;}
+.hud .stat{background:var(--ink-2); border:1px solid var(--ink-3); border-radius:var(--radius-s); padding:8px 14px; font-family:var(--font-mono); font-size:12.5px; min-width:88px;}
+.hud .stat span{display:block; color:var(--chalk-dim); font-size:10px; text-transform:uppercase; letter-spacing:.06em; margin-bottom:2px;}
+.hud .stat b{font-size:16px; color:var(--amber);}
+.timer-bar{height:6px; background:var(--ink-2); border-radius:99px; overflow:hidden; margin-bottom:12px;}
+.timer-bar i{display:block; height:100%; background:var(--mint); width:100%; transform-origin:left;}
+
+/* Results */
+.result-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin:14px 0;}
+.result-card{background:var(--ink-2); border:1px solid var(--ink-3); border-radius:var(--radius-m); padding:12px 14px;}
+.result-card .topic{font-size:12.5px; color:var(--chalk-dim); margin-bottom:6px;}
+.bar-track{height:8px; background:var(--ink-0); border-radius:99px; overflow:hidden;}
+.bar-fill{height:100%; background:var(--mint);}
+.bar-fill.weak{background:var(--coral);}
+
+@media (max-width: 900px){
+  .side-nav{display:none;}
+  main{padding:18px 14px 70px;}
+  .station h2{font-size:22px;}
+  .sim-side{flex:1 1 100%;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">CG</div>
+      <div class="brand-text"><b>Civic Grid</b><span>coordinate geometry &middot; grade 9</span></div>
+    </div>
+    <nav class="line-rail" aria-label="Module progress">
+      <div class="line-track" id="lineTrack"></div>
+    </nav>
+    <div class="score-chip" id="scoreChip" title="Total points earned">&#9733; <b id="scoreChipVal">0</b> pts</div>
+  </header>
+
+  <div class="layout">
+    <aside class="side-nav" id="sideNav" aria-label="Station list"></aside>
+    <main id="main">
+      <!-- station sections injected here -->
+    </main>
+  </div>
+
+</div>
+
+<script>
+/* =========================================================
+   CIVIC GRID — core application logic
+   Sections:
+   1. State + persistence
+   2. GridCanvas — shared coordinate-plane rendering engine
+   3. Station registry + router
+   4. Badge / scoring system
+   5. Individual station modules (registered below)
+   ========================================================= */
+
+/* ---------- 1. State ---------- */
+const STORAGE_KEY = 'civicGridState_v1';
+
+const state = {
+  stationIndex: 0,          // current station index
+  unlockedUpTo: 0,          // highest index reached
+  completed: {},            // {stationId: true}
+  score: 0,
+  arcade: { detective:{best:0,played:false}, race:{best:0,played:false}, mission:{best:0,played:false} },
+  assessment: { bestScore:null, lastResult:null }
+};
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      Object.assign(state, parsed);
+    }
+  }catch(e){ console.warn('Could not load saved progress', e); }
+}
+function saveState(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  catch(e){ console.warn('Could not save progress', e); }
+}
+function addScore(pts){
+  state.score += pts;
+  document.getElementById('scoreChipVal').textContent = state.score;
+  saveState();
+  updateBadgeStrip();
+}
+
+/* ---------- 2. GridCanvas: shared coordinate-plane engine ---------- */
+/**
+ * GridCanvas draws a Cartesian plane on a <canvas> and converts
+ * between pixel space and math (x,y) space. It supports:
+ *  - static grid + axes + quadrant shading
+ *  - draggable/clickable "pins" (points)
+ *  - line segments, right-triangle legs, rise/run bars
+ *  - mouse + touch interaction with hit-testing
+ */
+class GridCanvas{
+  constructor(canvas, opts={}){
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.range = opts.range || 10;          // shows -range..+range on both axes
+    this.theme = opts.theme || 'city';       // 'city' | 'route' | 'ramp' | 'park'
+    this.points = [];                        // {id,x,y,label,color,drag,onDrag}
+    this.segments = [];                      // {a:{x,y}, b:{x,y}, color, dash}
+    this.onClick = opts.onClick || null;     // fn(mathX, mathY)
+    this.showQuadrantLabels = opts.showQuadrantLabels !== false;
+    this.padding = 34;
+    this._dragging = null;
+    this._resizeObserver = new ResizeObserver(()=>this.resize());
+    this._resizeObserver.observe(canvas);
+    this._bindEvents();
+    this.resize();
+  }
+  resize(){
+    const box = this.canvas.parentElement;
+    const cssW = box.clientWidth;
+    const cssH = Math.max(300, Math.min(cssW * 0.72, 460));
+    const dpr = window.devicePixelRatio || 1;
+    this.canvas.style.width = cssW+'px';
+    this.canvas.style.height = cssH+'px';
+    this.canvas.width = cssW*dpr;
+    this.canvas.height = cssH*dpr;
+    this.ctx.setTransform(dpr,0,0,dpr,0,0);
+    this.w = cssW; this.h = cssH;
+    this.scale = (Math.min(cssW,cssH) - this.padding*2) / (this.range*2);
+    this.cx = cssW/2; this.cy = cssH/2;
+    this.draw();
+  }
+  toPx(mx,my){ return [this.cx + mx*this.scale, this.cy - my*this.scale]; }
+  toMath(px,py){ return [ (px-this.cx)/this.scale, (this.cy-py)/this.scale ]; }
+  snap(v, step){ return Math.round(v/step)*step; }
+
+  _bindEvents(){
+    const c = this.canvas;
+    const getPos = (e)=>{
+      const r = c.getBoundingClientRect();
+      const cx = (e.touches? e.touches[0].clientX : e.clientX) - r.left;
+      const cy = (e.touches? e.touches[0].clientY : e.clientY) - r.top;
+      return [cx,cy];
+    };
+    const down = (e)=>{
+      const [px,py] = getPos(e);
+      const hit = this._hitTest(px,py);
+      if(hit && hit.drag){ this._dragging = hit; e.preventDefault(); }
+      else if(this.onClick){
+        const [mx,my] = this.toMath(px,py);
+        this.onClick(mx,my);
+      }
+    };
+    const move = (e)=>{
+      if(!this._dragging) return;
+      e.preventDefault();
+      const [px,py] = getPos(e);
+      let [mx,my] = this.toMath(px,py);
+      mx = Math.max(-this.range, Math.min(this.range, mx));
+      my = Math.max(-this.range, Math.min(this.range, my));
+      if(this._dragging.snap){ mx = this.snap(mx, this._dragging.snap); my = this.snap(my, this._dragging.snap); }
+      this._dragging.x = mx; this._dragging.y = my;
+      if(this._dragging.onDrag) this._dragging.onDrag(mx,my);
+      this.draw();
+    };
+    const up = ()=>{ this._dragging = null; };
+    c.addEventListener('mousedown', down);
+    c.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    c.addEventListener('touchstart', down, {passive:false});
+    c.addEventListener('touchmove', move, {passive:false});
+    window.addEventListener('touchend', up);
+  }
+  _hitTest(px,py){
+    for(let i=this.points.length-1;i>=0;i--){
+      const p = this.points[i];
+      const [ppx,ppy] = this.toPx(p.x,p.y);
+      if(Math.hypot(ppx-px, ppy-py) < 16) return p;
+    }
+    return null;
+  }
+  addPoint(p){ this.points.push(Object.assign({color:'#F2A63A', r:7, drag:false}, p)); return p; }
+  clearPoints(){ this.points = []; }
+  clearSegments(){ this.segments = []; }
+
+  draw(){
+    const ctx = this.ctx, w=this.w, h=this.h;
+    ctx.clearRect(0,0,w,h);
+    // background
+    ctx.fillStyle = '#0A1B2E';
+    ctx.fillRect(0,0,w,h);
+
+    // quadrant tint
+    if(this.showQuadrantLabels){
+      ctx.fillStyle = 'rgba(87,214,174,0.035)';
+      ctx.fillRect(this.cx,0,w-this.cx,this.cy);
+      ctx.fillRect(0,this.cy,this.cx,h-this.cy);
+      ctx.fillStyle = 'rgba(242,166,58,0.035)';
+      ctx.fillRect(0,0,this.cx,this.cy);
+      ctx.fillRect(this.cx,this.cy,w-this.cx,h-this.cy);
+    }
+
+    // grid lines
+    ctx.strokeStyle = 'rgba(120,178,222,0.14)';
+    ctx.lineWidth = 1;
+    for(let i=-this.range;i<=this.range;i++){
+      const [x0] = this.toPx(i,0);
+      ctx.beginPath(); ctx.moveTo(x0,0); ctx.lineTo(x0,h); ctx.stroke();
+      const [,y0] = this.toPx(0,i);
+      ctx.beginPath(); ctx.moveTo(0,y0); ctx.lineTo(w,y0); ctx.stroke();
+    }
+    // axes
+    ctx.strokeStyle = 'rgba(234,241,246,0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0,this.cy); ctx.lineTo(w,this.cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(this.cx,0); ctx.lineTo(this.cx,h); ctx.stroke();
+
+    // axis ticks + numbers (every other unit if crowded)
+    ctx.fillStyle = 'rgba(169,193,212,0.8)';
+    ctx.font = '10px IBM Plex Mono, monospace';
+    const step = this.range > 8 ? 2 : 1;
+    for(let i=-this.range;i<=this.range;i+=step){
+      if(i===0) continue;
+      const [x] = this.toPx(i,0);
+      ctx.fillText(i, x-6, this.cy+13);
+      const [,y] = this.toPx(0,i);
+      ctx.fillText(i, this.cx+4, y+3);
+    }
+    ctx.fillStyle = 'rgba(234,241,246,0.7)';
+    ctx.fillText('0', this.cx+4, this.cy+13);
+
+    // theme labels (street/avenue names etc.) drawn by station modules via this.themeLabels()
+    if(this.themeLabelFn) this.themeLabelFn(ctx);
+
+    // segments (lines / triangle legs)
+    this.segments.forEach(s=>{
+      const [ax,ay] = this.toPx(s.a.x,s.a.y);
+      const [bx,by] = this.toPx(s.b.x,s.b.y);
+      ctx.save();
+      ctx.strokeStyle = s.color || '#57D6AE';
+      ctx.lineWidth = s.width || 2.5;
+      if(s.dash) ctx.setLineDash(s.dash);
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+      ctx.restore();
+    });
+
+    // points
+    this.points.forEach(p=>{
+      const [px,py] = this.toPx(p.x,p.y);
+      ctx.beginPath();
+      ctx.arc(px,py,p.r,0,Math.PI*2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = '#0A1B2E'; ctx.stroke();
+      if(p.label){
+        ctx.font = '600 12px IBM Plex Sans, sans-serif';
+        ctx.fillStyle = '#EAF1F6';
+        const ly = p.labelBelow ? py+20 : py-14;
+        ctx.fillText(p.label, px+ (p.labelDx||8), ly);
+        ctx.font = '11px IBM Plex Mono, monospace';
+        ctx.fillStyle = 'rgba(234,241,246,0.65)';
+        ctx.fillText(`(${fmt(p.x)}, ${fmt(p.y)})`, px+(p.labelDx||8), ly+14);
+      }
+    });
+  }
+}
+function fmt(n){ return Math.round(n*100)/100; }
+
+/* ---------- 3. Station registry + router ---------- */
+const STATIONS = []; // populated by register() calls in each module, in order
+
+function registerStation(def){ STATIONS.push(def); }
+
+function renderShell(){
+  const track = document.getElementById('lineTrack');
+  const nav = document.getElementById('sideNav');
+  track.innerHTML=''; nav.innerHTML='';
+  STATIONS.forEach((s,i)=>{
+    const locked = i > state.unlockedUpTo;
+    const done = !!state.completed[s.id];
+    const current = i === state.stationIndex;
+    const stop = document.createElement('button');
+    stop.className = 'stop'+(done?' done':'')+(current?' current':'')+(locked?' locked':'');
+    stop.innerHTML = `<span class="dot"></span><span class="label">${s.shortLabel}</span>`;
+    stop.disabled = locked;
+    stop.addEventListener('click', ()=>goTo(i));
+    track.appendChild(stop);
+
+    const item = document.createElement('button');
+    item.className = 'nav-item'+(done?' done':'')+(current?' current':'')+(locked?' locked':'');
+    item.innerHTML = `<span class="idx">${done?'&#10003;':i+1}</span><span>${s.navLabel}</span>`;
+    item.disabled = locked;
+    item.addEventListener('click', ()=>goTo(i));
+    nav.appendChild(item);
+  });
+  document.getElementById('scoreChipVal').textContent = state.score;
+}
+
+function goTo(i){
+  if(i > state.unlockedUpTo) return;
+  if(window._stationCleanup){ try{ window._stationCleanup(); }catch(e){} window._stationCleanup=null; }
+  state.stationIndex = i;
+  saveState();
+  renderShell();
+  renderMain();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function unlockNext(){
+  const i = state.stationIndex;
+  state.completed[STATIONS[i].id] = true;
+  if(state.unlockedUpTo < i+1) state.unlockedUpTo = i+1;
+  saveState();
+  renderShell();
+}
+
+function renderMain(){
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+  const s = STATIONS[state.stationIndex];
+  const section = document.createElement('div');
+  section.className = 'station active';
+  section.id = 'station-'+s.id;
+  main.appendChild(section);
+  s.render(section, { unlockNext, addScore, goTo, index: state.stationIndex, isLast: state.stationIndex===STATIONS.length-1 });
+}
+
+/* helper: build the standard footer nav (back / mark-complete) used by most stations */
+function buildFooter(container, {onBack, onContinue, continueLabel='Continue', continueDisabled=true}){
+  const foot = document.createElement('div');
+  foot.className = 'footer-nav';
+  const back = document.createElement('button');
+  back.className = 'btn btn-ghost';
+  back.innerHTML = '&larr; Back';
+  back.disabled = state.stationIndex===0;
+  back.addEventListener('click', ()=> goTo(Math.max(0,state.stationIndex-1)));
+  const next = document.createElement('button');
+  next.className = 'btn btn-primary';
+  next.innerHTML = continueLabel;
+  next.disabled = continueDisabled;
+  next.id = 'continueBtn';
+  next.addEventListener('click', onContinue);
+  foot.appendChild(back); foot.appendChild(next);
+  container.appendChild(foot);
+  return {back, next};
+}
+
+/* helper: single/multi choice quick-check widget.
+   opts: {question, options:[{label,correct}], onPass} */
+function buildChoiceCheck(container, opts){
+  const box = document.createElement('div');
+  box.className = 'check-box';
+  box.innerHTML = `<div class="check-q">${opts.question}</div>`;
+  const grid = document.createElement('div'); grid.className='opt-grid';
+  const fb = document.createElement('div'); fb.className='feedback';
+  let solved = false;
+  opts.options.forEach(o=>{
+    const b = document.createElement('button');
+    b.className='opt'; b.textContent = o.label;
+    b.addEventListener('click', ()=>{
+      if(solved || b.disabled) return;
+      if(o.correct){
+        solved = true;
+        [...grid.children].forEach(c=>c.disabled=true);
+        b.classList.add('correct');
+        fb.textContent = opts.correctMsg || 'Correct — nicely done.';
+        fb.className='feedback show ok';
+        addScore(opts.points||10);
+        opts.onPass && opts.onPass();
+      }else{
+        b.classList.add('wrong');
+        b.disabled = true;
+        fb.textContent = opts.incorrectMsg || 'Not quite — try another option.';
+        fb.className='feedback show no';
+      }
+    });
+    grid.appendChild(b);
+  });
+  box.appendChild(grid); box.appendChild(fb);
+  container.appendChild(box);
+  return box;
+}
+
+/* helper: numeric-answer quick-check.
+   opts: {question, answer, tolerance, unit, onPass} */
+function buildNumericCheck(container, opts){
+  const box = document.createElement('div');
+  box.className='check-box';
+  const tol = opts.tolerance ?? 0.1;
+  box.innerHTML = `<div class="check-q">${opts.question}</div>`;
+  const row = document.createElement('div'); row.className='input-row';
+  const input = document.createElement('input'); input.type='number'; input.step='any'; input.placeholder='?';
+  const btn = document.createElement('button'); btn.className='btn btn-primary btn-sm'; btn.textContent='Check';
+  const unit = document.createElement('span'); unit.className='mono'; unit.style.color='var(--chalk-dim)'; unit.style.fontSize='12.5px'; unit.textContent = opts.unit||'';
+  row.appendChild(input); row.appendChild(unit); row.appendChild(btn);
+  const fb = document.createElement('div'); fb.className='feedback';
+  btn.addEventListener('click', ()=>{
+    const v = parseFloat(input.value);
+    if(isNaN(v)){ fb.textContent='Enter a number first.'; fb.className='feedback show no'; return; }
+    if(Math.abs(v-opts.answer) <= tol){
+      fb.textContent = opts.correctMsg || `Correct — the answer is ${fmt(opts.answer)}.`;
+      fb.className='feedback show ok';
+      input.disabled=true; btn.disabled=true;
+      addScore(opts.points||10);
+      opts.onPass && opts.onPass();
+    }else{
+      fb.textContent = 'Not quite — check your formula and try again.';
+      fb.className='feedback show no';
+    }
+  });
+  box.appendChild(row); box.appendChild(fb);
+  container.appendChild(box);
+  return box;
+}
+
+/* ---------- 4. Badges ---------- */
+const BADGE_TIERS = [
+  {id:'rookie', label:'Grid Rookie', threshold:0, icon:'&#128205;'},
+  {id:'navigator', label:'Geometry Navigator', threshold:120, icon:'&#128506;'},
+  {id:'master', label:'Coordinate Master', threshold:260, icon:'&#127942;'}
+];
+function currentBadge(){
+  let b = BADGE_TIERS[0];
+  BADGE_TIERS.forEach(t=>{ if(state.score >= t.threshold) b = t; });
+  return b;
+}
+function updateBadgeStrip(){
+  document.querySelectorAll('.badge-strip').forEach(strip=>{
+    const cb = currentBadge();
+    strip.querySelectorAll('.badge').forEach(el=>{
+      const id = el.dataset.badge;
+      const tier = BADGE_TIERS.find(t=>t.id===id);
+      el.classList.toggle('earned', state.score >= tier.threshold);
+      el.classList.toggle('locked', state.score < tier.threshold);
+    });
+  });
+}
+function renderBadgeStrip(){
+  const wrap = document.createElement('div'); wrap.className='badge-strip';
+  BADGE_TIERS.forEach(t=>{
+    const el = document.createElement('div');
+    el.className='badge'; el.dataset.badge=t.id;
+    el.innerHTML = `<span class="medal">${t.icon}</span><span>${t.label}<br><small class="mono" style="opacity:.6">${t.threshold} pts</small></span>`;
+    wrap.appendChild(el);
+  });
+  return wrap;
+}
+
+/* =========================================================
+   STATION MODULES — inserted below this line
+   ========================================================= */
+/* ---- Station 0: Welcome ---- */
+registerStation({
+  id:'welcome', shortLabel:'Start', navLabel:'Welcome',
+  render(el, ctx){
+    el.innerHTML = `
+      <div class="eyebrow-line"><span class="tag">Orientation</span></div>
+      <h2>Welcome to the Civic Grid Survey Office</h2>
+      <p class="lede">You've just joined the city's junior surveying team. Every road, delivery route and park in town sits on one big coordinate plane — and your job this week is to master the tools surveyors use to measure it: plotting, distance, midpoints, slope, and area. Work through each station on the line below; each one unlocks the next once you show you've got it.</p>
+      <div class="panel">
+        <h3><span class="num">1</span>How this works</h3>
+        <p>Every station has four parts: a short explanation, a hands-on simulation you can drag and click, a real worked example, and a quick check. Pass the quick check to unlock the next stop on the line. Finish every stop, then hit the Practice Arcade and the Final Assessment.</p>
+        <div class="badge-strip" id="welcomeBadges"></div>
+      </div>`;
+    el.querySelector('#welcomeBadges').appendChild(renderBadgeStrip());
+    updateBadgeStrip();
+    buildFooter(el, {continueDisabled:false, continueLabel:'Start surveying &rarr;', onContinue:()=>{ unlockNext(); ctx.goTo(ctx.index+1); }});
+  }
+});
+
+/* ---- Station 1: The Cartesian Plane ---- */
+registerStation({
+  id:'plane', shortLabel:'Grid', navLabel:'1. The Grid',
+  render(el, ctx){
+    el.innerHTML = `
+      <div class="eyebrow-line"><span class="tag">Concept 1 of 6</span></div>
+      <h2>The City Grid: axes, origin &amp; quadrants</h2>
+      <p class="lede">Downtown is laid out on two perpendicular streets: <b>Main Street</b> runs east–west (the x-axis) and <b>Central Avenue</b> runs north–south (the y-axis). They cross at the <b>origin</b>, (0,0). The four blocks the streets carve out are the four <b>quadrants</b>, numbered I–IV counter-clockwise from the top right.</p>
+      <div class="panel">
+        <h3><span class="num">1</span>Drop a pin, find its quadrant</h3>
+        <p>Click anywhere on the map to drop a survey pin. Watch its coordinates and quadrant update live.</p>
+        <div class="sim-wrap">
+          <div class="sim-canvas-box"><canvas id="planeCanvas"></canvas></div>
+          <div class="sim-side">
+            <div class="readout" id="planeReadout">
+              <div class="row"><span>x (Main St.)</span><b id="pX">—</b></div>
+              <div class="row"><span>y (Central Ave.)</span><b id="pY">—</b></div>
+              <div class="row"><span>Quadrant</span><b id="pQ">—</b></div>
+            </div>
+            <p style="font-size:12px; margin:0;">Sign rule — <span class="mono">(+,+)</span> = I, <span class="mono">(−,+)</span> = II, <span class="mono">(−,−)</span> = III, <span class="mono">(+,−)</span> = IV. On an axis, a point belongs to neither quadrant.</p>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3><span class="num">2</span>Worked example</h3>
+        <div class="example-box">
+          <div class="icon">&#127968;</div>
+          <div><p style="margin:0">The new fire station is planned at <b class="mono">(-4, 3)</b>: 4 blocks west of Central Avenue, 3 blocks north of Main Street. Since x is negative and y is positive, it falls in <b>Quadrant II</b>.</p></div>
+        </div>
+      </div>
+      <div class="panel" id="planeCheckPanel">
+        <h3><span class="num">3</span>Quick check</h3>
+        <div id="planeCheckMount"></div>
+      </div>
+    `;
+    const gc = new GridCanvas(el.querySelector('#planeCanvas'), {range:8});
+    gc.themeLabelFn = (c)=>{
+      c.fillStyle='rgba(234,241,246,0.5)'; c.font='11px IBM Plex Sans';
+      c.fillText('Main Street →', gc.w-88, gc.cy-6);
+      c.save(); c.translate(gc.cx+14, 16); c.fillText('↑ Central Ave.',0,0); c.restore();
+    };
+    function quadrantOf(x,y){
+      if(x===0||y===0) return 'On an axis';
+      if(x>0&&y>0) return 'I';
+      if(x<0&&y>0) return 'II';
+      if(x<0&&y<0) return 'III';
+      return 'IV';
+    }
+    gc.onClick = (mx,my)=>{
+      const x = Math.round(mx), y = Math.round(my);
+      gc.clearPoints();
+      gc.addPoint({x,y,label:'Pin', color:'#F2A63A'});
+      gc.draw();
+      el.querySelector('#pX').textContent = x;
+      el.querySelector('#pY').textContent = y;
+      el.querySelector('#pQ').textContent = quadrantOf(x,y);
+    };
+    gc.draw();
+
+    let passed = false;
+    buildChoiceCheck(el.querySelector('#planeCheckMount'), {
+      question:'The library sits at (-2, -5). Which quadrant is it in?',
+      options:[
+        {label:'Quadrant I', correct:false},
+        {label:'Quadrant II', correct:false},
+        {label:'Quadrant III', correct:true},
+        {label:'Quadrant IV', correct:false},
+      ],
+      correctMsg:'Right — negative x and negative y both point into Quadrant III.',
+      onPass:()=>{ passed=true; footer.next.disabled=false; }
+    });
+    var footer = buildFooter(el, {continueLabel:'Continue to Plotting Points &rarr;', onContinue:()=>{ unlockNext(); ctx.goTo(ctx.index+1); }});
+  }
+});
+
+/* ---- Station 2: Plotting Points ---- */
+registerStation({
+  id:'plotting', shortLabel:'Plot', navLabel:'2. Plotting Points',
+  render(el, ctx){
+    el.innerHTML = `
+      <div class="eyebrow-line"><span class="tag">Concept 2 of 6</span></div>
+      <h2>Plotting and reading coordinates</h2>
+      <p class="lede">Every address on the grid is an ordered pair <span class="mono">(x, y)</span>: move <b>x</b> blocks along Main Street first, then <b>y</b> blocks along Central Avenue. Try placing a delivery pin by typing coordinates, then practise reading pins back off the map.</p>
+      <div class="panel">
+        <h3><span class="num">1</span>Place a delivery pin</h3>
+        <div class="sim-wrap">
+          <div class="sim-canvas-box"><canvas id="plotCanvas"></canvas></div>
+          <div class="sim-side">
+            <div class="input-row">
+              <input type="number" id="plotX" placeholder="x" value="3">
+              <input type="number" id="plotY" placeholder="y" value="5">
+              <button class="btn btn-primary btn-sm" id="plotBtn">Drop pin</button>
+            </div>
+            <div class="readout" id="plotReadout">
+              <div class="row"><span>Last pin</span><b id="plotLast">—</b></div>
+            </div>
+            <p style="font-size:12px;margin:0;">You can also drag the pin directly on the map — its coordinates update as you move it.</p>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3><span class="num">2</span>Worked example</h3>
+        <div class="example-box">
+          <div class="icon">&#128230;</div>
+          <p style="margin:0">A parcel locker at <b class="mono">(6, -2)</b> means: start at the origin, go 6 blocks along Main Street (right), then 2 blocks down Central Avenue. Order matters — <span class="mono">(6,-2)</span> and <span class="mono">(-2,6)</span> are very different addresses.</p>
+        </div>
+      </div>
+      <div class="panel" id="plotCheckPanel">
+        <h3><span class="num">3</span>Quick check</h3>
+        <p style="margin-bottom:10px;">A pin has been dropped at the marked location. Read its coordinates and enter them below.</p>
+        <div id="plotQuizCanvasBox" class="sim-canvas-box" style="max-width:420px; margin-bottom:12px;"><canvas id="plotQuizCanvas"></canvas></div>
+        <div id="plotCheckMount"></div>
+      </div>
+    `;
+    const gc = new GridCanvas(el.querySelector('#plotCanvas'), {range:8});
+    let pin = gc.addPoint({x:3,y:5,label:'Pin', color:'#F2A63A', drag:true, onDrag:(x,y)=>updateLast(Math.round(x),Math.round(y))});
+    function updateLast(x,y){
+      pin.x=x; pin.y=y;
+      el.querySelector('#plotLast').textContent = `(${x}, ${y})`;
+      gc.draw();
+    }
+    updateLast(3,5);
+    el.querySelector('#plotBtn').addEventListener('click', ()=>{
+      const x = parseInt(el.querySelector('#plotX').value)||0;
+      const y = parseInt(el.querySelector('#plotY').value)||0;
+      const cx = Math.max(-8,Math.min(8,x)), cy=Math.max(-8,Math.min(8,y));
+      updateLast(cx,cy);
+    });
+
+    // quiz canvas: fixed random point, non-draggable
+    const qx = 2*Math.round((Math.random()*10-5)), qy = Math.round(Math.random()*10-5); // ensure spread
+    const ansX = Math.floor(Math.random()*13)-6, ansY = Math.floor(Math.random()*13)-6;
+    const qgc = new GridCanvas(el.querySelector('#plotQuizCanvas'), {range:8});
+    qgc.addPoint({x:ansX,y:ansY,label:'?', color:'#9C8CF0'});
+    qgc.draw();
+
+    let footer;
+    const mount = el.querySelector('#plotCheckMount');
+    const box = document.createElement('div'); box.className='check-box';
+    box.innerHTML = `<div class="check-q">What are the coordinates of the marked point?</div>`;
+    const row = document.createElement('div'); row.className='input-row';
+    row.innerHTML = `<span class="mono">(</span>`;
+    const ix = document.createElement('input'); ix.type='number'; ix.style.width='60px';
+    const iy = document.createElement('input'); iy.type='number'; iy.style.width='60px';
+    const comma = document.createElement('span'); comma.className='mono'; comma.textContent=',';
+    const close = document.createElement('span'); close.className='mono'; close.textContent=')';
+    const btn = document.createElement('button'); btn.className='btn btn-primary btn-sm'; btn.textContent='Check';
+    row.appendChild(ix); row.appendChild(comma); row.appendChild(iy); row.appendChild(close); row.appendChild(btn);
+    const fb = document.createElement('div'); fb.className='feedback';
+    btn.addEventListener('click', ()=>{
+      if(parseInt(ix.value)===ansX && parseInt(iy.value)===ansY){
+        fb.textContent = 'Correct — that\'s exactly right.'; fb.className='feedback show ok';
+        ix.disabled=true; iy.disabled=true; btn.disabled=true;
+        addScore(10);
+        footer.next.disabled=false;
+      }else{
+        fb.textContent = 'Not quite — remember x comes first, then y.'; fb.className='feedback show no';
+      }
+    });
+    box.appendChild(row); box.appendChild(fb);
+    mount.appendChild(box);
+
+    footer = buildFooter(el, {continueLabel:'Continue to Distance &rarr;', onContinue:()=>{ unlockNext(); ctx.goTo(ctx.index+1); }});
+  }
+});
+
+/* ---- Station 3: Distance Formula — "The City Grid" ---- */
+registerStation({
+  id:'distance', shortLabel:'Distance', navLabel:'3. Distance',
+  render(el, ctx){
+    el.innerHTML = `
+      <div class="eyebrow-line"><span class="tag">Concept 3 of 6 &middot; Simulation: The City Grid</span></div>
+      <h2>How far is Home from School?</h2>
+      <p class="lede">Drag the two pins anywhere on the map. A right triangle appears: the horizontal leg is the change in x, the vertical leg is the change in y, and the straight-line distance is the hypotenuse — found with the <b>distance formula</b>, which is just the Pythagorean theorem in disguise.</p>
+      <div class="panel">
+        <h3><span class="num">1</span>Drag the pins</h3>
+        <div class="sim-wrap">
+          <div class="sim-canvas-box"><canvas id="distCanvas"></canvas></div>
+          <div class="sim-side">
+            <div class="readout">
+              <div class="row"><span>Home</span><b id="distHome">—</b></div>
+              <div class="row"><span>School</span><b id="distSchool">—</b></div>
+              <div class="row"><span>&Delta;x (run)</span><b id="distDx">—</b></div>
+              <div class="row"><span>&Delta;y (rise)</span><b id="distDy">—</b></div>
+              <div class="row"><span>Distance</span><b id="distAns">—</b></div>
+            </div>
+            <div class="toggle-row">
+              <span style="font-size:12.5px;color:var(--chalk-dim);">Reveal the math</span>
+              <button class="btn btn-ghost btn-sm" id="distToggle">Show</button>
+            </div>
+          </div>
+        </div>
+        <div class="math-reveal" id="distMath"></div>
+      </div>
+      <div class="panel">
+        <h3><span class="num">2</span>Worked example</h3>
+        <div class="example-box">
+          <div class="icon">&#128663;</div>
+          <p style="margin:0">A courier at <b class="mono">(1, 1)</b> needs to reach a drop-off at <b class="mono">(7, 9)</b>. &Delta;x = 6, &Delta;y = 8, so distance = &radic;(6&sup2;+8&sup2;) = &radic;100 = <b>10 blocks</b> — the classic 6-8-10 right triangle.</p>
+        </div>
+      </div>
+      <div class="panel" id="distCheckPanel">
+        <h3><span class="num">3</span>Quick check</h3>
+        <p id="distCheckQ" style="margin-bottom:10px;"></p>
+        <div id="distCheckMount"></div>
+      </div>
+    `;
+    const gc = new GridCanvas(el.querySelector('#distCanvas'), {range:9});
+    let home = gc.addPoint({x:-4,y:-3,label:'Home', color:'#57D6AE', drag:true, snap:1, onDrag:update});
+    let school = gc.addPoint({x:3,y:4,label:'School', color:'#F2A63A', drag:true, snap:1, onDrag:update, labelBelow:true});
+    let revealed=false;
+
+    function update(){
+      const dx = school.x-home.x, dy = school.y-home.y;
+      const dist = Math.sqrt(dx*dx+dy*dy);
+      gc.clearSegments();
+      // right-triangle legs
+      gc.segments.push({a:{x:home.x,y:home.y}, b:{x:school.x,y:home.y}, color:'#9C8CF0', dash:[5,4], width:2});
+      gc.segments.push({a:{x:school.x,y:home.y}, b:{x:school.x,y:school.y}, color:'#9C8CF0', dash:[5,4], width:2});
+      gc.segments.push({a:{x:home.x,y:home.y}, b:{x:school.x,y:school.y}, color:'#57D6AE', width:3});
+      gc.draw();
+      el.querySelector('#distHome').textContent = `(${fmt(home.x)}, ${fmt(home.y)})`;
+      el.querySelector('#distSchool').textContent = `(${fmt(school.x)}, ${fmt(school.y)})`;
+      el.querySelector('#distDx').textContent = fmt(Math.abs(dx));
+      el.querySelector('#distDy').textContent = fmt(Math.abs(dy));
+      el.querySelector('#distAns').textContent = fmt(dist);
+      if(revealed) renderMath(home,school,dx,dy,dist);
+    }
+    function renderMath(h,s,dx,dy,dist){
+      const box = el.querySelector('#distMath');
+      box.innerHTML = `
+        <div class="step" style="animation-delay:.02s">d = &radic;[(x&#8322;-x&#8321;)&sup2; + (y&#8322;-y&#8321;)&sup2;]</div>
+        <div class="step" style="animation-delay:.1s">d = &radic;[(${fmt(s.x)} - ${fmt(h.x)})&sup2; + (${fmt(s.y)} - ${fmt(h.y)})&sup2;]</div>
+        <div class="step" style="animation-delay:.18s">d = &radic;[(${fmt(dx)})&sup2; + (${fmt(dy)})&sup2;] = &radic;[${fmt(dx*dx)} + ${fmt(dy*dy)}]</div>
+        <div class="step" style="animation-delay:.26s">d = &radic;${fmt(dx*dx+dy*dy)} &asymp; <b>${fmt(dist)} blocks</b></div>`;
+    }
+    el.querySelector('#distToggle').addEventListener('click', (e)=>{
+      revealed = !revealed;
+      el.querySelector('#distMath').classList.toggle('show', revealed);
+      e.target.textContent = revealed ? 'Hide' : 'Show';
+      e.target.classList.toggle('active', revealed);
+      if(revealed) update();
+    });
+    update();
+
+    // Quick check with fresh random points
+    const p1 = {x:-2,y:1}, p2 = {x:4,y:9}; // dx=6, dy=8 -> d=10 (clean number, still meaningful)
+    el.querySelector('#distCheckQ').innerHTML = `Two stops sit at <b class="mono">(${p1.x}, ${p1.y})</b> and <b class="mono">(${p2.x}, ${p2.y})</b>. What's the distance between them (in blocks)?`;
+    const dAns = Math.sqrt((p2.x-p1.x)**2 + (p2.y-p1.y)**2);
+    let footer;
+    buildNumericCheck(el.querySelector('#distCheckMount'), {
+      question:'Enter the distance:', answer:dAns, tolerance:0.05, unit:'blocks',
+      correctMsg:`Correct — &radic;(6&sup2;+8&sup2;) = &radic;100 = ${fmt(dAns)} blocks.`,
+      onPass:()=>{ footer.next.disabled=false; }
+    });
+    footer = buildFooter(el, {continueLabel:'Continue to Midpoint &rarr;', onContinue:()=>{ unlockNext(); ctx.goTo(ctx.index+1); }});
+  }
+});
+
+/* ---- Station 4: Section & Midpoint Formula — "Delivery Route Planner" ---- */
+registerStation({
+  id:'midpoint', shortLabel:'Midpoint', navLabel:'4. Midpoint / Section',
+  render(el, ctx){
+    el.innerHTML = `
+      <div class="eyebrow-line"><span class="tag">Concept 4 of 6 &middot; Simulation: Delivery Route Planner</span></div>
+      <h2>Placing a charging station on the route</h2>
+      <p class="lede">A delivery drone flies a straight route from pickup to drop-off. Dispatch wants a charging station placed a given <b>ratio</b> along that route. Set the ratio m&nbsp;:&nbsp;n and watch the station slide to the exact dividing point — the <b>section formula</b>. When the ratio is 1:1, that dividing point is just the <b>midpoint</b>.</p>
+      <div class="panel">
+        <h3><span class="num">1</span>Plan the route</h3>
+        <div class="sim-wrap">
+          <div class="sim-canvas-box"><canvas id="midCanvas"></canvas></div>
+          <div class="sim-side">
+            <div class="input-row">
+              <label class="mono" style="font-size:12px;">ratio m:n</label>
+              <input type="number" id="ratioM" value="1" min="1" max="9" style="width:50px;">
+              <span class="mono">:</span>
+              <input type="number" id="ratioN" value="1" min="1" max="9" style="width:50px;">
+              <button class="btn btn-ghost btn-sm" id="midBtn">Use midpoint (1:1)</button>
+            </div>
+            <div class="readout">
+              <div class="row"><span>Pickup</span><b id="midA">—</b></div>
+              <div class="row"><span>Drop-off</span><b id="midB">—</b></div>
+              <div class="row"><span>Station point</span><b id="midP">—</b></div>
+            </div>
+            <div class="toggle-row">
+              <span style="font-size:12.5px;color:var(--chalk-dim);">Reveal the math</span>
+              <button class="btn btn-ghost btn-sm" id="midToggle">Show</button>
+            </div>
+          </div>
+        </div>
+        <div class="math-reveal" id="midMath"></div>
+      </div>
+      <div class="panel">
+        <h3><span class="num">2</span>Worked example</h3>
+        <div class="example-box">
+          <div class="icon">&#9889;</div>
+          <p style="margin:0">Pickup at <b class="mono">(0, 0)</b>, drop-off at <b class="mono">(8, 4)</b>. A charger placed 1:3 from pickup sits at ((1&middot;8+3&middot;0)/4, (1&middot;4+3&middot;0)/4) = <b class="mono">(2, 1)</b> — one quarter of the way along.</p>
+        </div>
+      </div>
+      <div class="panel" id="midCheckPanel">
+        <h3><span class="num">3</span>Quick check</h3>
+        <p id="midCheckQ" style="margin-bottom:10px;"></p>
+        <div id="midCheckMount"></div>
+      </div>
+    `;
+    const gc = new GridCanvas(el.querySelector('#midCanvas'), {range:9});
+    let A = gc.addPoint({x:-6,y:-4,label:'Pickup', color:'#57D6AE', drag:true, snap:1, onDrag:update});
+    let B = gc.addPoint({x:6,y:5,label:'Drop-off', color:'#F0685A', drag:true, snap:1, onDrag:update, labelBelow:true});
+    let P = gc.addPoint({x:0,y:0.5,label:'Station', color:'#F2A63A', r:8});
+    let revealed=false;
+
+    function ratios(){
+      const m = Math.max(1, parseFloat(el.querySelector('#ratioM').value)||1);
+      const n = Math.max(1, parseFloat(el.querySelector('#ratioN').value)||1);
+      return [m,n];
+    }
+    function update(){
+      const [m,n] = ratios();
+      const px = (m*B.x + n*A.x)/(m+n);
+      const py = (m*B.y + n*A.y)/(m+n);
+      P.x = px; P.y = py;
+      gc.clearSegments();
+      gc.segments.push({a:{x:A.x,y:A.y}, b:{x:B.x,y:B.y}, color:'#7CA6C4', width:2, dash:[6,4]});
+      gc.segments.push({a:{x:A.x,y:A.y}, b:{x:P.x,y:P.y}, color:'#57D6AE', width:3});
+      gc.draw();
+      el.querySelector('#midA').textContent = `(${fmt(A.x)}, ${fmt(A.y)})`;
+      el.querySelector('#midB').textContent = `(${fmt(B.x)}, ${fmt(B.y)})`;
+      el.querySelector('#midP').textContent = `(${fmt(px)}, ${fmt(py)})`;
+      if(revealed) renderMath(m,n,px,py);
+    }
+    function renderMath(m,n,px,py){
+      const box = el.querySelector('#midMath');
+      const isMid = m===n;
+      box.innerHTML = isMid ? `
+        <div class="step">Midpoint = ( (x&#8321;+x&#8322;)/2 , (y&#8321;+y&#8322;)/2 )</div>
+        <div class="step" style="animation-delay:.1s">= ( (${fmt(A.x)}+${fmt(B.x)})/2 , (${fmt(A.y)}+${fmt(B.y)})/2 )</div>
+        <div class="step" style="animation-delay:.2s">= <b>(${fmt(px)}, ${fmt(py)})</b></div>
+      ` : `
+        <div class="step">P = ( (m&middot;x&#8322;+n&middot;x&#8321;)/(m+n) , (m&middot;y&#8322;+n&middot;y&#8321;)/(m+n) )</div>
+        <div class="step" style="animation-delay:.1s">= ( (${m}&middot;${fmt(B.x)}+${n}&middot;${fmt(A.x)})/${m+n} , (${m}&middot;${fmt(B.y)}+${n}&middot;${fmt(A.y)})/${m+n} )</div>
+        <div class="step" style="animation-delay:.2s">= <b>(${fmt(px)}, ${fmt(py)})</b></div>`;
+    }
+    el.querySelector('#ratioM').addEventListener('input', update);
+    el.querySelector('#ratioN').addEventListener('input', update);
+    el.querySelector('#midBtn').addEventListener('click', ()=>{
+      el.querySelector('#ratioM').value=1; el.querySelector('#ratioN').value=1; update();
+    });
+    el.querySelector('#midToggle').addEventListener('click', (e)=>{
+      revealed = !revealed;
+      el.querySelector('#midMath').classList.toggle('show', revealed);
+      e.target.textContent = revealed?'Hide':'Show';
+      e.target.classList.toggle('active', revealed);
+      if(revealed) update();
+    });
+    update();
+
+    // Quick check
+    const qa={x:-2,y:-6}, qb={x:6,y:2};
+    const qmid = {x:(qa.x+qb.x)/2, y:(qa.y+qb.y)/2};
+    el.querySelector('#midCheckQ').innerHTML = `Two stops sit at <b class="mono">(${qa.x}, ${qa.y})</b> and <b class="mono">(${qb.x}, ${qb.y})</b>. What is the x-coordinate of their midpoint?`;
+    let footer;
+    buildNumericCheck(el.querySelector('#midCheckMount'), {
+      question:'Midpoint x =', answer:qmid.x, tolerance:0.05,
+      correctMsg:`Correct — (${qa.x}+${qb.x})/2 = ${fmt(qmid.x)}.`,
+      onPass:()=>{ footer.next.disabled=false; }
+    });
+    footer = buildFooter(el, {continueLabel:'Continue to Slope &rarr;', onContinue:()=>{ unlockNext(); ctx.goTo(ctx.index+1); }});
+  }
+});
+
+/* ---- Station 5: Slope — "Slope as a Ramp / Hill" ---- */
+registerStation({
+  id:'slope', shortLabel:'Slope', navLabel:'5. Slope',
+  render(el, ctx){
+    el.innerHTML = `
+      <div class="eyebrow-line"><span class="tag">Concept 5 of 6 &middot; Simulation: Slope as a Ramp</span></div>
+      <h2>Slope: how steep is the ramp?</h2>
+      <p class="lede">Drag the two anchor points on the incline. The vertical bar is the <b>rise</b> (change in y), the horizontal bar is the <b>run</b> (change in x), and slope = rise &divide; run. Try the presets to see a wheelchair ramp, a downhill ski slope, a flat road, and a vertical wall.</p>
+      <div class="panel">
+        <h3><span class="num">1</span>Drag the incline</h3>
+        <div class="btn-row" style="margin-bottom:12px;">
+          <button class="btn btn-ghost btn-sm" data-preset="ramp">&#9855; Wheelchair ramp</button>
+          <button class="btn btn-ghost btn-sm" data-preset="ski">&#9975; Ski slope (downhill)</button>
+          <button class="btn btn-ghost btn-sm" data-preset="flat">&#128739; Flat road</button>
+          <button class="btn btn-ghost btn-sm" data-preset="wall">&#128274; Vertical wall</button>
+        </div>
+        <div class="sim-wrap">
+          <div class="sim-canvas-box"><canvas id="slopeCanvas"></canvas></div>
+          <div class="sim-side">
+            <div class="readout">
+              <div class="row"><span>Point 1</span><b id="slP1">—</b></div>
+              <div class="row"><span>Point 2</span><b id="slP2">—</b></div>
+              <div class="row"><span>Rise (&Delta;y)</span><b id="slRise">—</b></div>
+              <div class="row"><span>Run (&Delta;x)</span><b id="slRun">—</b></div>
+              <div class="row"><span>Slope</span><b id="slVal">—</b></div>
+              <div class="row"><span>Type</span><b id="slType">—</b></div>
+            </div>
+            <div class="toggle-row">
+              <span style="font-size:12.5px;color:var(--chalk-dim);">Reveal the math</span>
+              <button class="btn btn-ghost btn-sm" id="slToggle">Show</button>
+            </div>
+          </div>
+        </div>
+        <div class="math-reveal" id="slMath"></div>
+      </div>
+      <div class="panel">
+        <h3><span class="num">2</span>Worked example</h3>
+        <div class="example-box">
+          <div class="icon">&#127956;</div>
+          <p style="margin:0">A ski run drops from <b class="mono">(1, 8)</b> to <b class="mono">(9, 2)</b>. Slope = (2-8)/(9-1) = -6/8 = <b>-0.75</b>. Negative slope means the line falls as x increases — a downhill run.</p>
+        </div>
+      </div>
+      <div class="panel" id="slCheckPanel">
+        <h3><span class="num">3</span>Quick check</h3>
+        <div id="slCheckMount"></div>
+      </div>
+    `;
+    const gc = new GridCanvas(el.querySelector('#slopeCanvas'), {range:9});
+    let P1 = gc.addPoint({x:-5,y:-3,label:'P1', color:'#57D6AE', drag:true, snap:1, onDrag:update});
+    let P2 = gc.addPoint({x:4,y:4,label:'P2', color:'#F2A63A', drag:true, snap:1, onDrag:update, labelBelow:true});
+    let revealed=false;
+
+    function classify(dx,dy){
+      if(dx===0) return 'Undefined (vertical)';
+      if(dy===0) return 'Zero (flat)';
+      return dy/dx>0 ? 'Positive (uphill)' : 'Negative (downhill)';
+    }
+    function update(){
+      const dx = P2.x-P1.x, dy = P2.y-P1.y;
+      gc.clearSegments();
+      gc.segments.push({a:{x:P1.x,y:P1.y}, b:{x:P2.x,y:P2.y}, color:'#F2A63A', width:3});
+      // run bar (horizontal), rise bar (vertical) — drawn as legs from P1
+      gc.segments.push({a:{x:P1.x,y:P1.y}, b:{x:P2.x,y:P1.y}, color:'#7CA6C4', width:5});
+      gc.segments.push({a:{x:P2.x,y:P1.y}, b:{x:P2.x,y:P2.y}, color:'#9C8CF0', width:5});
+      gc.draw();
+      el.querySelector('#slP1').textContent = `(${fmt(P1.x)}, ${fmt(P1.y)})`;
+      el.querySelector('#slP2').textContent = `(${fmt(P2.x)}, ${fmt(P2.y)})`;
+      el.querySelector('#slRise').textContent = fmt(dy);
+      el.querySelector('#slRun').textContent = fmt(dx);
+      el.querySelector('#slVal').textContent = dx===0 ? 'undefined' : fmt(dy/dx);
+      el.querySelector('#slType').textContent = classify(dx,dy);
+      if(revealed) renderMath(dx,dy);
+    }
+    function renderMath(dx,dy){
+      const box = el.querySelector('#slMath');
+      box.innerHTML = dx===0 ? `
+        <div class="step">slope = &Delta;y &divide; &Delta;x = ${fmt(dy)} &divide; 0</div>
+        <div class="step" style="animation-delay:.1s">Division by zero &rarr; <b>undefined</b>. The line is vertical.</div>` : `
+        <div class="step">m = (y&#8322;-y&#8321;) / (x&#8322;-x&#8321;)</div>
+        <div class="step" style="animation-delay:.1s">m = (${fmt(P2.y)} - ${fmt(P1.y)}) / (${fmt(P2.x)} - ${fmt(P1.x)}) = ${fmt(dy)} / ${fmt(dx)}</div>
+        <div class="step" style="animation-delay:.2s">m = <b>${fmt(dy/dx)}</b> — ${classify(dx,dy).toLowerCase()}</div>`;
+    }
+    el.querySelector('#slToggle').addEventListener('click', (e)=>{
+      revealed=!revealed;
+      el.querySelector('#slMath').classList.toggle('show', revealed);
+      e.target.textContent = revealed?'Hide':'Show';
+      e.target.classList.toggle('active', revealed);
+      if(revealed) update();
+    });
+    const presets = { ramp:[[-6,-4],[2,-1]], ski:[[-5,5],[5,-3]], flat:[[-6,1],[6,1]], wall:[[2,-6],[2,6]] };
+    el.querySelectorAll('[data-preset]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const [[x1,y1],[x2,y2]] = presets[b.dataset.preset];
+        P1.x=x1;P1.y=y1;P2.x=x2;P2.y=y2; update();
+      });
+    });
+    update();
+
+    let footer;
+    buildChoiceCheck(el.querySelector('#slCheckMount'), {
+      question:'A road rises from (2, 1) to (6, 9). What is its slope, and what kind of road is it?',
+      options:[
+        {label:'m = 2, uphill', correct:true},
+        {label:'m = 0.5, downhill', correct:false},
+        {label:'m = -2, downhill', correct:false},
+        {label:'m = undefined, vertical', correct:false},
+      ],
+      correctMsg:'Right — (9-1)/(6-2) = 8/4 = 2, a positive slope, so the road climbs uphill.',
+      onPass:()=>{ footer.next.disabled=false; }
+    });
+    footer = buildFooter(el, {continueLabel:'Continue to Area &rarr;', onContinue:()=>{ unlockNext(); ctx.goTo(ctx.index+1); }});
+  }
+});
+
+/* ---- Station 6: Area of a Triangle — "Park Boundary Surveyor" ---- */
+registerStation({
+  id:'area', shortLabel:'Area', navLabel:'6. Triangle Area',
+  render(el, ctx){
+    el.innerHTML = `
+      <div class="eyebrow-line"><span class="tag">Concept 6 of 6 &middot; Simulation: Park Boundary Surveyor</span></div>
+      <h2>Fencing a triangular park</h2>
+      <p class="lede">The parks department wants to fence a triangular plot with corner posts at three coordinates. Click the grid to place up to three posts — the fenced area updates instantly using the coordinate area formula.</p>
+      <div class="panel">
+        <h3><span class="num">1</span>Place three corner posts</h3>
+        <div class="sim-wrap">
+          <div class="sim-canvas-box"><canvas id="areaCanvas"></canvas></div>
+          <div class="sim-side">
+            <div class="readout" id="areaReadout">
+              <div class="row"><span>Post A</span><b id="arA">—</b></div>
+              <div class="row"><span>Post B</span><b id="arB">—</b></div>
+              <div class="row"><span>Post C</span><b id="arC">—</b></div>
+              <div class="row"><span>Area</span><b id="arAns">—</b></div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-ghost btn-sm" id="areaClear">Clear posts</button>
+              <button class="btn btn-ghost btn-sm" id="areaToggle">Show math</button>
+            </div>
+          </div>
+        </div>
+        <div class="math-reveal" id="areaMath"></div>
+      </div>
+      <div class="panel">
+        <h3><span class="num">2</span>Worked example</h3>
+        <div class="example-box">
+          <div class="icon">&#127794;</div>
+          <p style="margin:0">Posts at <b class="mono">(0,0)</b>, <b class="mono">(6,0)</b>, <b class="mono">(0,4)</b>: Area = &#189;|0(0-4)+6(4-0)+0(0-0)| = &#189;|24| = <b>12 square blocks</b>.</p>
+        </div>
+      </div>
+      <div class="panel" id="areaCheckPanel">
+        <h3><span class="num">3</span>Quick check</h3>
+        <p id="areaCheckQ" style="margin-bottom:10px;"></p>
+        <div id="areaCheckMount"></div>
+      </div>
+    `;
+    const gc = new GridCanvas(el.querySelector('#areaCanvas'), {range:9});
+    let posts = [];
+    function shoelace(pts){
+      if(pts.length<3) return 0;
+      const [a,b,c]=pts;
+      return Math.abs(a.x*(b.y-c.y)+b.x*(c.y-a.y)+c.x*(a.y-b.y))/2;
+    }
+    function redraw(){
+      gc.clearPoints(); gc.clearSegments();
+      const labels=['A','B','C']; const colors=['#57D6AE','#F2A63A','#9C8CF0'];
+      posts.forEach((p,i)=> gc.addPoint({x:p.x,y:p.y,label:labels[i],color:colors[i]}));
+      if(posts.length>=2){
+        for(let i=0;i<posts.length;i++){
+          const a=posts[i], b=posts[(i+1)%posts.length];
+          if(posts.length===2 && i===1) break;
+          gc.segments.push({a,b,color:'#7CA6C4', width:2.5});
+        }
+      }
+      gc.draw();
+      el.querySelector('#arA').textContent = posts[0]?`(${fmt(posts[0].x)}, ${fmt(posts[0].y)})`:'—';
+      el.querySelector('#arB').textContent = posts[1]?`(${fmt(posts[1].x)}, ${fmt(posts[1].y)})`:'—';
+      el.querySelector('#arC').textContent = posts[2]?`(${fmt(posts[2].x)}, ${fmt(posts[2].y)})`:'—';
+      const area = shoelace(posts);
+      el.querySelector('#arAns').textContent = posts.length===3 ? fmt(area)+' sq blocks' : '—';
+      if(revealed && posts.length===3) renderMath(posts,area);
+    }
+    let revealed=false;
+    function renderMath(pts,area){
+      const [a,b,c]=pts;
+      const box = el.querySelector('#areaMath');
+      box.innerHTML = `
+        <div class="step">Area = &#189;|x&#8321;(y&#8322;-y&#8323;) + x&#8322;(y&#8323;-y&#8321;) + x&#8323;(y&#8321;-y&#8322;)|</div>
+        <div class="step" style="animation-delay:.1s">= &#189;|${fmt(a.x)}(${fmt(b.y)}-${fmt(c.y)}) + ${fmt(b.x)}(${fmt(c.y)}-${fmt(a.y)}) + ${fmt(c.x)}(${fmt(a.y)}-${fmt(b.y)})|</div>
+        <div class="step" style="animation-delay:.2s">= &#189;|${fmt(a.x*(b.y-c.y))} + ${fmt(b.x*(c.y-a.y))} + ${fmt(c.x*(a.y-b.y))}|</div>
+        <div class="step" style="animation-delay:.3s">= <b>${fmt(area)} square blocks</b></div>`;
+    }
+    gc.onClick = (mx,my)=>{
+      const x=Math.round(mx), y=Math.round(my);
+      if(posts.length>=3) posts=[];
+      posts.push({x,y});
+      redraw();
+    };
+    el.querySelector('#areaClear').addEventListener('click', ()=>{ posts=[]; redraw(); });
+    el.querySelector('#areaToggle').addEventListener('click', (e)=>{
+      revealed=!revealed;
+      el.querySelector('#areaMath').classList.toggle('show', revealed);
+      e.target.textContent = revealed?'Hide math':'Show math';
+      e.target.classList.toggle('active', revealed);
+      redraw();
+    });
+    posts = [{x:-4,y:-3},{x:4,y:-3},{x:0,y:5}]; redraw();
+
+    const qa={x:0,y:0}, qb={x:8,y:0}, qc={x:2,y:6};
+    const qArea = shoelace([qa,qb,qc]);
+    el.querySelector('#areaCheckQ').innerHTML = `A triangular plot has corners at <b class="mono">(0,0)</b>, <b class="mono">(8,0)</b> and <b class="mono">(2,6)</b>. What is its area?`;
+    let footer;
+    buildNumericCheck(el.querySelector('#areaCheckMount'), {
+      question:'Area =', answer:qArea, tolerance:0.05, unit:'sq blocks',
+      correctMsg:`Correct — &#189;|0(0-6)+8(6-0)+2(0-0)| = &#189;(48) = ${fmt(qArea)}.`,
+      onPass:()=>{ footer.next.disabled=false; }
+    });
+    footer = buildFooter(el, {continueLabel:'Continue to Practice Arcade &rarr;', onContinue:()=>{ unlockNext(); ctx.goTo(ctx.index+1); }});
+  }
+});
+
+/* ---- Station 7: Practice Arcade (3 games) ---- */
+registerStation({
+  id:'arcade', shortLabel:'Arcade', navLabel:'7. Practice Arcade',
+  render(el, ctx){
+    const intervals = [];
+    window._stationCleanup = ()=> intervals.forEach(id=>clearInterval(id));
+
+    el.innerHTML = `
+      <div class="eyebrow-line"><span class="tag">Practice Arcade</span></div>
+      <h2>Prove it at speed</h2>
+      <p class="lede">Three arcade games put everything you've learned under a clock. Play each one at least once to unlock the Final Assessment — your best scores are saved on this device.</p>
+      <div class="panel">
+        <div class="game-tabs" id="gameTabs">
+          <button class="game-tab active" data-game="detective">&#128269; Coordinate Detective <span class="check" id="chk-detective"></span></button>
+          <button class="game-tab" data-game="race">&#9201; Distance Race <span class="check" id="chk-race"></span></button>
+          <button class="game-tab" data-game="mission">&#128225; Midpoint Mission <span class="check" id="chk-mission"></span></button>
+        </div>
+        <div class="game-panel active" id="panel-detective"></div>
+        <div class="game-panel" id="panel-race"></div>
+        <div class="game-panel" id="panel-mission"></div>
+      </div>
+      <div class="panel">
+        <h3><span class="num">&#127942;</span>Your badges</h3>
+        <div class="badge-strip" id="arcadeBadges"></div>
+      </div>
+      <div class="panel" id="arcadeGate">
+        <h3><span class="num">!</span>Unlock the Final Assessment</h3>
+        <p id="gateText" style="margin-bottom:0;"></p>
+      </div>
+    `;
+    el.querySelector('#arcadeBadges').appendChild(renderBadgeStrip());
+    updateBadgeStrip();
+
+    function refreshChecks(){
+      ['detective','race','mission'].forEach(g=>{
+        el.querySelector('#chk-'+g).innerHTML = state.arcade[g].played ? '&#10003;' : '';
+        el.querySelector('.game-tab[data-game="'+g+'"]').classList.toggle('active', currentTab===g);
+      });
+      const allPlayed = state.arcade.detective.played && state.arcade.race.played && state.arcade.mission.played;
+      el.querySelector('#gateText').innerHTML = allPlayed
+        ? 'All three games played — the Final Assessment is unlocked below.'
+        : 'Play each of the three games above at least once. Remaining: '+
+          ['detective','race','mission'].filter(g=>!state.arcade[g].played).map(g=>({detective:'Coordinate Detective',race:'Distance Race',mission:'Midpoint Mission'})[g]).join(', ')+'.';
+      footer.next.disabled = !allPlayed;
+    }
+
+    let currentTab = 'detective';
+    el.querySelectorAll('.game-tab').forEach(tab=>{
+      tab.addEventListener('click', ()=>{
+        currentTab = tab.dataset.game;
+        el.querySelectorAll('.game-tab').forEach(t=>t.classList.toggle('active', t===tab));
+        el.querySelectorAll('.game-panel').forEach(p=>p.classList.remove('active'));
+        el.querySelector('#panel-'+currentTab).classList.add('active');
+      });
+    });
+
+    /* ============ GAME 1: Coordinate Detective ============ */
+    (function initDetective(){
+      const panel = el.querySelector('#panel-detective');
+      panel.innerHTML = `
+        <p style="font-size:13px;">Read the clue, then click the point on the grid that matches it. Faster, accurate answers earn bigger streak bonuses.</p>
+        <div class="hud">
+          <div class="stat"><span>Score</span><b id="detScore">0</b></div>
+          <div class="stat"><span>Streak</span><b id="detStreak">0</b></div>
+          <div class="stat"><span>Round</span><b id="detRound">0/8</b></div>
+          <div class="stat"><span>Best</span><b id="detBest">${state.arcade.detective.best}</b></div>
+        </div>
+        <div class="timer-bar"><i id="detTimerBar"></i></div>
+        <div class="check-q" id="detClue">Press start to begin.</div>
+        <div class="sim-canvas-box" style="max-width:520px;"><canvas id="detCanvas"></canvas></div>
+        <div class="btn-row" style="margin-top:10px;"><button class="btn btn-primary" id="detStart">Start round</button></div>
+        <div class="feedback" id="detFeedback"></div>
+      `;
+      const gc = new GridCanvas(panel.querySelector('#detCanvas'), {range:8});
+      let score=0, streak=0, round=0, timeLeft=0, timerId=null;
+      const ROUNDS=8, ROUND_TIME=10000;
+      const clueBank = [
+        {text:'I lie exactly on the x-axis, right of the origin.', test:(x,y)=>y===0 && x>0},
+        {text:'I lie exactly on the y-axis, below the origin.', test:(x,y)=>x===0 && y<0},
+        {text:'I sit in Quadrant II (negative x, positive y).', test:(x,y)=>x<0&&y>0},
+        {text:'I sit in Quadrant IV (positive x, negative y).', test:(x,y)=>x>0&&y<0},
+        {text:'I am exactly 5 units from the origin.', test:(x,y)=>Math.abs(Math.hypot(x,y)-5)<0.01},
+        {text:'My x-coordinate and y-coordinate are equal (and not zero).', test:(x,y)=>x===y&&x!==0},
+        {text:'I sit in Quadrant I (positive x, positive y).', test:(x,y)=>x>0&&y>0},
+        {text:'I am exactly 5 units below the x-axis.', test:(x,y)=>y===-5},
+      ];
+      function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+      function newRound(){
+        round++;
+        const clue = clueBank[randInt(0,clueBank.length-1)];
+        // find a correct candidate
+        let correct=null, tries=0;
+        while(!correct && tries<400){
+          const x=randInt(-7,7), y=randInt(-7,7);
+          if(clue.test(x,y)){ correct={x,y}; }
+          tries++;
+        }
+        if(!correct) correct = {x:5,y:0}; // safety fallback
+        const candidates=[correct];
+        let guard=0;
+        while(candidates.length<5 && guard<400){
+          const x=randInt(-7,7), y=randInt(-7,7);
+          guard++;
+          if(clue.test(x,y)) continue;
+          if(candidates.some(c=>c.x===x&&c.y===y)) continue;
+          candidates.push({x,y});
+        }
+        candidates.sort(()=>Math.random()-0.5);
+        gc.clearPoints();
+        candidates.forEach((c,i)=> gc.addPoint({x:c.x,y:c.y,label:String.fromCharCode(65+i),color:'#7CA6C4',r:8, correct: c.x===correct.x&&c.y===correct.y}));
+        gc.draw();
+        panel.querySelector('#detClue').textContent = clue.text;
+        panel.querySelector('#detRound').textContent = round+'/'+ROUNDS;
+        gc.onClick = null;
+        gc._detOnPointClick = (pt)=>evaluate(pt);
+        timeLeft = ROUND_TIME;
+        clearInterval(timerId);
+        timerId = setInterval(()=>{
+          timeLeft -= 100;
+          panel.querySelector('#detTimerBar').style.width = Math.max(0,(timeLeft/ROUND_TIME*100))+'%';
+          if(timeLeft<=0){ clearInterval(timerId); evaluate(null); }
+        },100);
+        intervals.push(timerId);
+      }
+      // override hit test to use candidate points for click detection specific to this canvas
+      const origBind = gc._hitTest.bind(gc);
+      gc.canvas.addEventListener('click', (e)=>{
+        if(!gc._detOnPointClick) return;
+        const r = gc.canvas.getBoundingClientRect();
+        const px = e.clientX-r.left, py = e.clientY-r.top;
+        const hit = origBind(px,py);
+        if(hit) gc._detOnPointClick(hit);
+      });
+      function evaluate(pt){
+        clearInterval(timerId);
+        const fb = panel.querySelector('#detFeedback');
+        gc._detOnPointClick = null;
+        if(pt && pt.correct){
+          streak++;
+          const speedBonus = Math.max(0, Math.round(timeLeft/1000));
+          const pts = 10 + streak*2 + speedBonus;
+          score += pts;
+          addScore(pts);
+          fb.textContent = `Correct! +${pts} pts (streak &times;${streak})`;
+          fb.className='feedback show ok';
+        }else{
+          streak=0;
+          fb.textContent = pt ? 'Not the right point — streak reset.' : 'Time\'s up — streak reset.';
+          fb.className='feedback show no';
+        }
+        panel.querySelector('#detScore').textContent=score;
+        panel.querySelector('#detStreak').textContent=streak;
+        gc.points.forEach(p=>{ if(p.correct) p.color='#57D6AE'; });
+        gc.draw();
+        if(round>=ROUNDS){
+          setTimeout(()=>{
+            state.arcade.detective.played = true;
+            state.arcade.detective.best = Math.max(state.arcade.detective.best, score);
+            saveState();
+            panel.querySelector('#detBest').textContent = state.arcade.detective.best;
+            fb.textContent += ` — Session complete! Final score: ${score}.`;
+            panel.querySelector('#detStart').textContent='Play again';
+            panel.querySelector('#detStart').disabled=false;
+            refreshChecks();
+          }, 900);
+        }else{
+          setTimeout(newRound, 900);
+        }
+      }
+      panel.querySelector('#detStart').addEventListener('click', (e)=>{
+        score=0;streak=0;round=0; e.target.disabled=true;
+        panel.querySelector('#detScore').textContent=0;
+        panel.querySelector('#detStreak').textContent=0;
+        newRound();
+      });
+    })();
+
+    /* ============ GAME 2: Distance Race ============ */
+    (function initRace(){
+      const panel = el.querySelector('#panel-race');
+      panel.innerHTML = `
+        <p style="font-size:13px;">Compute the distance between the two glowing stops before the timer runs out. Levels get harder — whole numbers first, then decimals.</p>
+        <div class="hud">
+          <div class="stat"><span>Score</span><b id="raceScore">0</b></div>
+          <div class="stat"><span>Level</span><b id="raceLevel">1</b></div>
+          <div class="stat"><span>Question</span><b id="raceQ">0/8</b></div>
+          <div class="stat"><span>Best</span><b id="raceBest">${state.arcade.race.best}</b></div>
+        </div>
+        <div class="timer-bar"><i id="raceTimerBar"></i></div>
+        <div class="sim-canvas-box" style="max-width:520px;"><canvas id="raceCanvas"></canvas></div>
+        <div class="input-row" style="margin-top:10px;">
+          <input type="number" step="any" id="raceInput" placeholder="distance">
+          <button class="btn btn-primary btn-sm" id="raceSubmit">Submit</button>
+          <button class="btn btn-primary" id="raceStart">Start race</button>
+        </div>
+        <div class="feedback" id="raceFeedback"></div>
+      `;
+      const gc = new GridCanvas(panel.querySelector('#raceCanvas'), {range:9});
+      const triples = [[3,4,5],[6,8,10],[5,12,13],[8,15,17],[9,12,15],[7,24,25]];
+      let score=0, qnum=0, timerId=null, timeLeft=0, curAns=0;
+      const QUESTIONS=8, Q_TIME=12000;
+      function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+      function newQuestion(){
+        qnum++;
+        const level = qnum<=3 ? 1 : (qnum<=6?2:3);
+        panel.querySelector('#raceLevel').textContent = level;
+        let x1,y1,x2,y2,ans;
+        if(level===1){
+          const t = triples[randInt(0,triples.length-1)];
+          x1=randInt(-4,2); y1=randInt(-4,2);
+          x2 = x1+t[0]; y2 = y1+t[1]; ans=t[2];
+        }else if(level===2){
+          const t = triples[randInt(0,triples.length-1)];
+          x1=randInt(-4,2); y1=randInt(-4,2);
+          x2 = x1+(Math.random()<0.5?t[0]:-t[0]); y2 = y1+(Math.random()<0.5?t[1]:-t[1]);
+          ans = t[2];
+        }else{
+          x1=randInt(-6,6); y1=randInt(-6,6); x2=randInt(-6,6); y2=randInt(-6,6);
+          if(x1===x2&&y1===y2) x2+=3;
+          ans = Math.sqrt((x2-x1)**2+(y2-y1)**2);
+        }
+        curAns = ans;
+        gc.clearPoints(); gc.clearSegments();
+        gc.addPoint({x:x1,y:y1,label:'A',color:'#57D6AE'});
+        gc.addPoint({x:x2,y:y2,label:'B',color:'#F2A63A'});
+        gc.segments.push({a:{x:x1,y:y1}, b:{x:x2,y:y2}, color:'#7CA6C4', width:2, dash:[5,4]});
+        gc.draw();
+        panel.querySelector('#raceQ').textContent = qnum+'/'+QUESTIONS;
+        panel.querySelector('#raceInput').value='';
+        panel.querySelector('#raceInput').disabled=false;
+        timeLeft=Q_TIME;
+        clearInterval(timerId);
+        timerId=setInterval(()=>{
+          timeLeft-=100;
+          panel.querySelector('#raceTimerBar').style.width=Math.max(0,timeLeft/Q_TIME*100)+'%';
+          if(timeLeft<=0){ clearInterval(timerId); submit(null); }
+        },100);
+        intervals.push(timerId);
+      }
+      function submit(val){
+        clearInterval(timerId);
+        panel.querySelector('#raceInput').disabled=true;
+        const fb = panel.querySelector('#raceFeedback');
+        const correct = val!==null && Math.abs(val-curAns) <= (curAns>15?0.15:0.06);
+        if(correct){
+          const bonus = Math.max(0, Math.round(timeLeft/1500));
+          const pts = 12+bonus;
+          score+=pts; addScore(pts);
+          fb.textContent = `Correct — ${fmt(curAns)}. +${pts} pts`;
+          fb.className='feedback show ok';
+        }else{
+          fb.textContent = val===null ? `Time\'s up — the answer was ${fmt(curAns)}.` : `Not quite — the answer was ${fmt(curAns)}.`;
+          fb.className='feedback show no';
+        }
+        panel.querySelector('#raceScore').textContent=score;
+        if(qnum>=QUESTIONS){
+          setTimeout(()=>{
+            state.arcade.race.played=true;
+            state.arcade.race.best=Math.max(state.arcade.race.best, score);
+            saveState();
+            panel.querySelector('#raceBest').textContent=state.arcade.race.best;
+            fb.textContent += ` — Race complete! Final score: ${score}.`;
+            panel.querySelector('#raceStart').textContent='Race again';
+            panel.querySelector('#raceStart').disabled=false;
+            refreshChecks();
+          },900);
+        }else{
+          setTimeout(newQuestion, 900);
+        }
+      }
+      panel.querySelector('#raceSubmit').addEventListener('click', ()=>{
+        const v = parseFloat(panel.querySelector('#raceInput').value);
+        if(!panel.querySelector('#raceInput').disabled) submit(isNaN(v)?null:v);
+      });
+      panel.querySelector('#raceInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') panel.querySelector('#raceSubmit').click(); });
+      panel.querySelector('#raceStart').addEventListener('click', (e)=>{
+        score=0; qnum=0; e.target.disabled=true;
+        panel.querySelector('#raceScore').textContent=0;
+        newQuestion();
+      });
+    })();
+
+    /* ============ GAME 3: Midpoint Mission ============ */
+    (function initMission(){
+      const panel = el.querySelector('#panel-mission');
+      panel.innerHTML = `
+        <p style="font-size:13px;">Click the exact point that connects each pair of transit stations — sometimes the midpoint, sometimes a given ratio point. Each success adds a link to the network.</p>
+        <div class="hud">
+          <div class="stat"><span>Level</span><b id="misLevel">0/6</b></div>
+          <div class="stat"><span>Attempts left</span><b id="misTries">3</b></div>
+          <div class="stat"><span>Best level reached</span><b id="misBest">${state.arcade.mission.best||0}</b></div>
+        </div>
+        <div class="check-q" id="misTask">Press start to begin.</div>
+        <div class="sim-canvas-box" style="max-width:520px;"><canvas id="misCanvas"></canvas></div>
+        <div class="btn-row" style="margin-top:10px;"><button class="btn btn-primary" id="misStart">Start mission</button></div>
+        <div class="feedback" id="misFeedback"></div>
+      `;
+      const gc = new GridCanvas(panel.querySelector('#misCanvas'), {range:9});
+      const LEVELS = [
+        {m:1,n:1,label:'midpoint (1:1)'},
+        {m:1,n:2,label:'ratio 1:2 from Station A'},
+        {m:1,n:3,label:'ratio 1:3 from Station A'},
+        {m:2,n:1,label:'ratio 2:1 from Station A'},
+        {m:3,n:2,label:'ratio 3:2 from Station A'},
+        {m:2,n:3,label:'ratio 2:3 from Station A'},
+      ];
+      let level=0, tries=3, network=[];
+      function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+      let A,B,target;
+      function newLevel(){
+        tries=3;
+        const spec = LEVELS[level];
+        A = {x:randInt(-7,2), y:randInt(-7,2)};
+        B = {x:A.x+randInt(3,9), y:A.y+randInt(3,9)};
+        const m=spec.m, n=spec.n;
+        target = {x:(m*B.x+n*A.x)/(m+n), y:(m*B.y+n*A.y)/(m+n)};
+        gc.clearPoints(); gc.clearSegments();
+        network.forEach(seg=> gc.segments.push({a:seg.a,b:seg.b,color:'rgba(87,214,174,0.35)', width:2}));
+        gc.addPoint({x:A.x,y:A.y,label:'A',color:'#57D6AE'});
+        gc.addPoint({x:B.x,y:B.y,label:'B',color:'#F2A63A', labelBelow:true});
+        gc.segments.push({a:A,b:B,color:'#7CA6C4', width:2, dash:[5,4]});
+        gc.draw();
+        panel.querySelector('#misTask').innerHTML = `Level ${level+1}: click the <b>${spec.label}</b> point between Station A and Station B.`;
+        panel.querySelector('#misLevel').textContent = level+'/'+LEVELS.length;
+        panel.querySelector('#misTries').textContent = tries;
+        gc.onClick = (mx,my)=>attempt(mx,my);
+      }
+      function attempt(mx,my){
+        const fb = panel.querySelector('#misFeedback');
+        const dist = Math.hypot(mx-target.x, my-target.y);
+        const tol = 0.55;
+        if(dist<=tol){
+          gc.onClick=null;
+          addScore(15);
+          network.push({a:A,b:B});
+          fb.textContent = `Connected! That point was (${fmt(target.x)}, ${fmt(target.y)}).`;
+          fb.className='feedback show ok';
+          level++;
+          if(level>=LEVELS.length){
+            state.arcade.mission.played=true;
+            state.arcade.mission.best = Math.max(state.arcade.mission.best||0, level);
+            saveState();
+            panel.querySelector('#misBest').textContent=state.arcade.mission.best;
+            fb.textContent += ' Mission complete — the whole transit network is linked!';
+            panel.querySelector('#misStart').textContent='Play again';
+            panel.querySelector('#misStart').disabled=false;
+            refreshChecks();
+          }else{
+            setTimeout(newLevel, 1000);
+          }
+        }else{
+          tries--;
+          panel.querySelector('#misTries').textContent = tries;
+          if(tries<=0){
+            fb.textContent = `Out of attempts — the point was (${fmt(target.x)}, ${fmt(target.y)}). Moving on.`;
+            fb.className='feedback show no';
+            gc.onClick=null;
+            state.arcade.mission.best = Math.max(state.arcade.mission.best||0, level);
+            level++;
+            if(level>=LEVELS.length){
+              state.arcade.mission.played=true; saveState();
+              panel.querySelector('#misBest').textContent=state.arcade.mission.best;
+              panel.querySelector('#misStart').textContent='Play again';
+              panel.querySelector('#misStart').disabled=false;
+              refreshChecks();
+            }else setTimeout(newLevel, 1200);
+          }else{
+            fb.textContent = 'Close, but not exact — try again.';
+            fb.className='feedback show no';
+          }
+        }
+      }
+      panel.querySelector('#misStart').addEventListener('click', (e)=>{
+        level=0; network=[]; e.target.disabled=true;
+        newLevel();
+      });
+    })();
+
+    var footer = buildFooter(el, {continueLabel:'Continue to Final Assessment &rarr;', onContinue:()=>{ unlockNext(); ctx.goTo(ctx.index+1); }});
+    footer.next.disabled = true;
+    refreshChecks();
+  }
+});
+
+/* ---- Station 8: Final Assessment ---- */
+registerStation({
+  id:'assessment', shortLabel:'Final', navLabel:'8. Final Assessment',
+  render(el, ctx){
+    window._stationCleanup = null;
+    const QUESTIONS = [
+      {topic:'The Grid', type:'choice', prompt:'Point (-3, -7) lies in which quadrant?',
+        options:[{label:'I',correct:false},{label:'II',correct:false},{label:'III',correct:true},{label:'IV',correct:false}]},
+      {topic:'Plotting', type:'click', prompt:'Click the point at (4, -2).', target:{x:4,y:-2}, tol:0.6},
+      {topic:'Distance', type:'numeric', prompt:'Find the distance between (2, 3) and (10, 9).', answer:10, tol:0.05, unit:'units'},
+      {topic:'Distance', type:'choice', prompt:'Which pair of points is exactly 5 units apart?',
+        options:[{label:'(0,0) and (3,4)', correct:true},{label:'(0,0) and (3,3)', correct:false},{label:'(0,0) and (2,4)', correct:false},{label:'(0,0) and (4,4)', correct:false}]},
+      {topic:'Midpoint', type:'numeric', prompt:'Find the x-coordinate of the midpoint of (-4, 2) and (6, -8).', answer:1, tol:0.05},
+      {topic:'Section Formula', type:'numeric', prompt:'A point divides the segment from A(0,0) to B(9,6) in the ratio 1:2 (from A). What is its x-coordinate?', answer:3, tol:0.05},
+      {topic:'Slope', type:'numeric', prompt:'Find the slope of the line through (1, 2) and (5, 10).', answer:2, tol:0.05},
+      {topic:'Slope', type:'choice', prompt:'A perfectly flat road has a slope that is:',
+        options:[{label:'Positive', correct:false},{label:'Negative', correct:false},{label:'Zero', correct:true},{label:'Undefined', correct:false}]},
+      {topic:'Triangle Area', type:'numeric', prompt:'Find the area of the triangle with vertices (0,0), (4,0), (0,3).', answer:6, tol:0.05, unit:'sq units'},
+      {topic:'Triangle Area', type:'click', prompt:'Click any point that lies in Quadrant II (to be used as a triangle vertex).', quadrant:'II'},
+    ];
+    let qi=0; const results = QUESTIONS.map(()=>null); // null | true | false
+
+    function renderIntro(){
+      el.innerHTML = `
+        <div class="eyebrow-line"><span class="tag">Final Assessment</span></div>
+        <h2>Certification Survey — 10 questions</h2>
+        <p class="lede">This mixed assessment covers every station: the grid, plotting, distance, midpoint &amp; section, slope, and triangle area. Answer each question once — you'll get a full results breakdown at the end.</p>
+        <div class="panel">
+          <p style="margin-bottom:14px;">Ready when you are. There's no timer — take the time you need to get each answer right.</p>
+          <button class="btn btn-primary" id="beginAssess">Begin assessment &rarr;</button>
+        </div>`;
+      el.querySelector('#beginAssess').addEventListener('click', renderQuestion);
+    }
+
+    function renderQuestion(){
+      const q = QUESTIONS[qi];
+      el.innerHTML = `
+        <div class="eyebrow-line"><span class="tag">Question ${qi+1} of ${QUESTIONS.length} &middot; ${q.topic}</span></div>
+        <h2>${q.prompt}</h2>
+        <div class="panel" id="qPanel"></div>
+      `;
+      const panel = el.querySelector('#qPanel');
+      if(q.type==='choice'){
+        const grid = document.createElement('div'); grid.className='opt-grid';
+        const fb = document.createElement('div'); fb.className='feedback';
+        q.options.forEach(o=>{
+          const b=document.createElement('button'); b.className='opt'; b.textContent=o.label;
+          b.addEventListener('click', ()=>{
+            [...grid.children].forEach(c=>c.disabled=true);
+            const ok = !!o.correct;
+            b.classList.add(ok?'correct':'wrong');
+            if(!ok){ const c=[...grid.children].find((el2,i)=>q.options[i].correct); c.classList.add('correct'); }
+            record(ok, fb);
+          });
+          grid.appendChild(b);
+        });
+        panel.appendChild(grid); panel.appendChild(fb);
+      } else if(q.type==='numeric'){
+        const row=document.createElement('div'); row.className='input-row';
+        const input=document.createElement('input'); input.type='number'; input.step='any';
+        const unit=document.createElement('span'); unit.className='mono'; unit.style.fontSize='12.5px'; unit.style.color='var(--chalk-dim)'; unit.textContent=q.unit||'';
+        const btn=document.createElement('button'); btn.className='btn btn-primary btn-sm'; btn.textContent='Submit';
+        row.appendChild(input); row.appendChild(unit); row.appendChild(btn);
+        const fb=document.createElement('div'); fb.className='feedback';
+        btn.addEventListener('click', ()=>{
+          const v=parseFloat(input.value);
+          input.disabled=true; btn.disabled=true;
+          const ok = !isNaN(v) && Math.abs(v-q.answer)<=q.tol;
+          fb.innerHTML = ok ? 'Correct.' : `Not quite — the correct answer is <b>${fmt(q.answer)}</b>.`;
+          record(ok, fb);
+        });
+        panel.appendChild(row); panel.appendChild(fb);
+        input.addEventListener('keydown', e=>{ if(e.key==='Enter') btn.click(); });
+      } else if(q.type==='click'){
+        const box=document.createElement('div'); box.className='sim-canvas-box'; box.style.maxWidth='480px';
+        const canvas=document.createElement('canvas'); box.appendChild(canvas);
+        panel.appendChild(box);
+        const fb=document.createElement('div'); fb.className='feedback'; panel.appendChild(fb);
+        const gc = new GridCanvas(canvas, {range:8});
+        gc.onClick = (mx,my)=>{
+          gc.onClick=null;
+          let ok;
+          if(q.target){ ok = Math.hypot(mx-q.target.x,my-q.target.y)<=q.tol; }
+          else if(q.quadrant==='II'){ ok = mx<0&&my>0; }
+          const rx = Math.round(mx), ry=Math.round(my);
+          gc.addPoint({x:rx,y:ry,label:'You', color: ok?'#57D6AE':'#F0685A'});
+          if(q.target) gc.addPoint({x:q.target.x,y:q.target.y,label:'Target',color:'#F2A63A'});
+          gc.draw();
+          fb.innerHTML = ok ? 'Correct.' : (q.target ? `Not quite — the target was (${q.target.x}, ${q.target.y}).` : 'That point isn\'t in Quadrant II.');
+          record(ok, fb);
+        };
+      }
+    }
+
+    function record(ok, fbEl){
+      results[qi] = ok;
+      fbEl.className = 'feedback show '+(ok?'ok':'no');
+      addScore(ok?8:0);
+      const btn = document.createElement('button');
+      btn.className='btn btn-primary'; btn.style.marginTop='12px';
+      btn.innerHTML = qi<QUESTIONS.length-1 ? 'Next question &rarr;' : 'See my results &rarr;';
+      btn.addEventListener('click', ()=>{ qi++; if(qi<QUESTIONS.length) renderQuestion(); else renderResults(); });
+      fbEl.after(btn);
+    }
+
+    function renderResults(){
+      const total = results.filter(r=>r===true).length;
+      const pct = Math.round(total/QUESTIONS.length*100);
+      // group by topic
+      const topics = {};
+      QUESTIONS.forEach((q,i)=>{
+        topics[q.topic] = topics[q.topic] || {correct:0,total:0};
+        topics[q.topic].total++;
+        if(results[i]) topics[q.topic].correct++;
+      });
+      state.assessment.lastResult = {total, pct, date: new Date().toISOString()};
+      state.assessment.bestScore = Math.max(state.assessment.bestScore||0, total);
+      saveState();
+      const weak = Object.entries(topics).filter(([,v])=> v.correct/v.total < 0.6).map(([k])=>k);
+      el.innerHTML = `
+        <div class="eyebrow-line"><span class="tag">Results</span></div>
+        <h2>Survey certification: ${total}/${QUESTIONS.length} (${pct}%)</h2>
+        <p class="lede">${pct>=80 ? 'Excellent work — you\'ve got a strong handle on coordinate geometry.' : pct>=60 ? 'Solid effort — a bit more practice on a couple of topics will lock it in.' : 'You\'re getting there — revisit the topics below and try the assessment again.'}</p>
+        <div class="panel">
+          <h3><span class="num">&#128202;</span>Breakdown by topic</h3>
+          <div class="result-grid">
+            ${Object.entries(topics).map(([k,v])=>{
+              const p = Math.round(v.correct/v.total*100);
+              return `<div class="result-card"><div class="topic">${k} — ${v.correct}/${v.total}</div><div class="bar-track"><div class="bar-fill${p<60?' weak':''}" style="width:${p}%"></div></div></div>`;
+            }).join('')}
+          </div>
+          ${weak.length ? `<p style="margin-top:10px;"><b>Topics to review:</b> ${weak.join(', ')}.</p>` : `<p style="margin-top:10px;">No weak spots — every topic is above 60%.</p>`}
+        </div>
+        <div class="panel">
+          <h3><span class="num">&#127942;</span>Your badges</h3>
+          <div class="badge-strip" id="finalBadges"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="retakeBtn">Retake assessment</button>
+          <button class="btn btn-ghost" id="reviewBtn">Review a topic</button>
+        </div>
+      `;
+      el.querySelector('#finalBadges').appendChild(renderBadgeStrip());
+      updateBadgeStrip();
+      el.querySelector('#retakeBtn').addEventListener('click', ()=>{ qi=0; results.fill(null); renderIntro(); });
+      el.querySelector('#reviewBtn').addEventListener('click', ()=> ctx.goTo(0));
+      unlockNext();
+    }
+
+    renderIntro();
+  }
+});
+
+/* STATION_MODULES_PLACEHOLDER */
+
+/* ---------- boot ---------- */
+loadState();
+renderShell();
+renderMain();
+document.getElementById('scoreChipVal').textContent = state.score;
+</script>
+</body>
+</html>
