@@ -301,6 +301,90 @@
     .story-dialogue-chip .avatar { font-size: 24px; }
     .story-dialogue-chip p { font-size: 0.84rem; color: var(--text-muted); margin: 0; }
 
+    /* René Descartes Portrait & Spotlight Card */
+    .descartes-portrait-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.85));
+      border: 1px solid rgba(34, 211, 238, 0.35);
+      border-radius: var(--radius-m);
+      padding: 10px 14px;
+      margin: 8px 0 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 15px rgba(34, 211, 238, 0.12);
+    }
+    .descartes-img-frame {
+      position: relative;
+      flex-shrink: 0;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      padding: 2.5px;
+      background: linear-gradient(135deg, var(--primary-cyan), var(--primary-emerald));
+      box-shadow: 0 0 14px rgba(34, 211, 238, 0.4);
+    }
+    .descartes-img-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+      display: block;
+      background: #0f172a;
+    }
+    .descartes-meta-info { flex: 1; text-align: left; }
+    .descartes-name-tag { font-family: var(--font-heading); font-size: 0.9rem; font-weight: 700; color: #fff; line-height: 1.25; }
+    .descartes-title-tag { color: var(--primary-amber); font-size: 0.74rem; font-weight: 600; margin-top: 1px; }
+    .descartes-quote-tag { font-size: 0.76rem; color: var(--text-muted); font-style: italic; margin-top: 3px; line-height: 1.3; }
+
+    /* Descartes Chapter Spotlight Card */
+    .descartes-spotlight-card {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(34, 211, 238, 0.05));
+      border: 1px solid rgba(34, 211, 238, 0.25);
+      border-radius: var(--radius-l);
+      padding: 20px 24px;
+      margin-bottom: 32px;
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    }
+    .descartes-spotlight-card::before {
+      content: '';
+      position: absolute;
+      top: -50%; left: -50%; width: 200%; height: 200%;
+      background: radial-gradient(circle, rgba(34, 211, 238, 0.05) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .descartes-spotlight-avatar {
+      flex-shrink: 0;
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      padding: 3px;
+      background: linear-gradient(135deg, var(--primary-amber), var(--primary-cyan));
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.35);
+    }
+    .descartes-spotlight-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+      display: block;
+    }
+    .descartes-spotlight-content { flex: 1; z-index: 1; }
+    .descartes-spotlight-badge {
+      display: inline-block; padding: 2px 10px; background: rgba(245, 158, 11, 0.2);
+      border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 12px; color: var(--primary-amber);
+      font-size: 0.72rem; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;
+    }
+    .descartes-spotlight-heading { font-size: 1.15rem; color: #fff; margin-bottom: 6px; }
+    .descartes-spotlight-desc { font-size: 0.88rem; color: var(--text-muted); line-height: 1.55; }
+    @media (max-width: 768px) {
+      .descartes-spotlight-card { flex-direction: column; text-align: center; }
+    }
+
     /* Interactive Lab Card */
     .interactive-lab-card {
       background: var(--bg-card); border: 1px solid var(--bg-card-border);
@@ -670,6 +754,18 @@
     <!-- ================= CHAPTER 1 ================= -->
     <section class="quest-chapter" id="ch1">
       <div class="container">
+        <!-- René Descartes Origin Spotlight Banner -->
+        <div class="descartes-spotlight-card">
+          <div class="descartes-spotlight-avatar">
+            <img src="Rene_Descartes.jpg" alt="René Descartes" onerror="this.src='René_Descartes.jpg'">
+          </div>
+          <div class="descartes-spotlight-content">
+            <span class="descartes-spotlight-badge" data-i18n="descartes_spotlight_badge">Historical Origin Spotlight</span>
+            <h3 class="descartes-spotlight-heading" data-i18n="descartes_spotlight_title">René Descartes (1596–1650) — The Visionary Behind Coordinates</h3>
+            <p class="descartes-spotlight-desc" data-i18n="descartes_spotlight_desc">In 1637, French mathematician &amp; philosopher René Descartes lay in bed watching a fly crawl across his ceiling grid. He realized that any position in space can be uniquely pin-pointed using two perpendicular distances — giving birth to <b>Cartesian Coordinates</b> and bridging geometry with algebra!</p>
+          </div>
+        </div>
+
         <div class="chapter-header">
           <span class="chapter-badge-ribbon" data-i18n="ch1_ribbon">Stage 1 · Cartesian Physics &amp; Distance</span>
           <h2 class="chapter-title" data-i18n="ch1_title">Mapping Space with the Distance Formula</h2>
@@ -1424,6 +1520,10 @@
         fb_of_pages: "of 13",
         fb_toc_title: "📑 Table of Contents",
 
+        descartes_spotlight_badge: "Historical Origin Spotlight",
+        descartes_spotlight_title: "René Descartes (1596–1650) — The Visionary Behind Coordinates",
+        descartes_spotlight_desc: "In 1637, French mathematician &amp; philosopher René Descartes lay in bed watching a fly crawl across his ceiling grid. He realized that any position in space can be uniquely pin-pointed using two perpendicular distances — giving birth to <b>Cartesian Coordinates</b> and bridging geometry with algebra!",
+
         ch1_ribbon: "Stage 1 · Cartesian Physics & Distance",
         ch1_title: "Mapping Space with the Distance Formula",
         ch1_subtitle: "Every location in a 2D plane has a unique coordinate (x, y). By combining horizontal and vertical displacements into a right-angled triangle, Pythagoras' theorem gives us the absolute distance!",
@@ -1577,6 +1677,10 @@
         fb_page_label: "पृष्ठ",
         fb_of_pages: "का 13",
         fb_toc_title: "📑 विषय सूची",
+
+        descartes_spotlight_badge: "ऐतिहासिक उत्पत्ति विशेष",
+        descartes_spotlight_title: "रेने डेकार्ट (1596–1650) — निर्देशांकों के दूरदर्शी जनक",
+        descartes_spotlight_desc: "1637 में, फ्रांसीसी गणितज्ञ और दार्शनिक रेने डेकार्ट ने बिस्तर पर लेटे हुए अपनी छत पर एक मक्खी को रेंगते देखा। उन्होंने महसूस किया कि अंतरिक्ष में किसी भी स्थिति को दो लंबवत दूरियों का उपयोग करके सटीक रूप से दर्शाया जा सकता है — जिसने <b>कार्तीय निर्देशांकों</b> को जन्म दिया!",
 
         ch1_ribbon: "चरण 1 · कार्तीय भौतिकी और दूरी",
         ch1_title: "दूरी सूत्र के साथ स्थान का मानचित्रण",
@@ -1788,19 +1892,29 @@
           <text x="50" y="94" fill="#10b981" font-size="10">A(-3,-2)</text>
           <text x="200" y="15" fill="#f43f5e" font-size="10">B(3,2)</text>
         </svg>`,
-        // Page 2: Descartes Fly
-        `<svg viewBox="0 0 280 100" style="width:100%; height:90px; border-radius:6px; background:#040914;">
+        // Page 2: Descartes Fly & Portrait
+        `<div class="descartes-portrait-card">
+          <div class="descartes-img-frame">
+            <img src="Rene_Descartes.jpg" alt="René Descartes" onerror="this.src='René_Descartes.jpg'">
+          </div>
+          <div class="descartes-meta-info">
+            <div class="descartes-name-tag">René Descartes (1596–1650)</div>
+            <div class="descartes-title-tag">Father of Cartesian Geometry</div>
+            <div class="descartes-quote-tag">"Every point on a 2D plane has a unique (X, Y) address."</div>
+          </div>
+        </div>
+        <svg viewBox="0 0 280 80" style="width:100%; height:75px; border-radius:6px; background:#040914;">
           <g stroke="rgba(255,255,255,0.15)" stroke-width="1">
-            <line x1="30" y1="10" x2="30" y2="90"/><line x1="90" y1="10" x2="90" y2="90"/>
-            <line x1="150" y1="10" x2="150" y2="90"/><line x1="210" y1="10" x2="210" y2="90"/>
-            <line x1="10" y1="30" x2="270" y2="30"/><line x1="10" y1="60" x2="270" y2="60"/>
+            <line x1="30" y1="8" x2="30" y2="72"/><line x1="90" y1="8" x2="90" y2="72"/>
+            <line x1="150" y1="8" x2="150" y2="72"/><line x1="210" y1="8" x2="210" y2="72"/>
+            <line x1="10" y1="24" x2="270" y2="24"/><line x1="10" y1="48" x2="270" y2="48"/>
           </g>
-          <line x1="30" y1="90" x2="270" y2="90" stroke="#38bdf8" stroke-width="2"/>
-          <line x1="30" y1="10" x2="30" y2="90" stroke="#38bdf8" stroke-width="2"/>
-          <circle cx="150" cy="30" r="6" fill="#f59e0b"/>
-          <text x="150" y="24" fill="#fef08a" font-size="11" font-weight="bold" text-anchor="middle">🪰 Fly at (3, 4)</text>
-          <line x1="150" y1="30" x2="150" y2="90" stroke="#f59e0b" stroke-dasharray="3,3"/>
-          <line x1="30" y1="30" x2="150" y2="30" stroke="#f59e0b" stroke-dasharray="3,3"/>
+          <line x1="30" y1="72" x2="270" y2="72" stroke="#38bdf8" stroke-width="2"/>
+          <line x1="30" y1="8" x2="30" y2="72" stroke="#38bdf8" stroke-width="2"/>
+          <circle cx="150" cy="24" r="5" fill="#f59e0b"/>
+          <text x="150" y="16" fill="#fef08a" font-size="10" font-weight="bold" text-anchor="middle">🪰 Fly on Ceiling at (3, 4)</text>
+          <line x1="150" y1="24" x2="150" y2="72" stroke="#f59e0b" stroke-dasharray="3,3"/>
+          <line x1="30" y1="24" x2="150" y2="24" stroke="#f59e0b" stroke-dasharray="3,3"/>
         </svg>`,
         // Page 3: 4 Quadrants
         `<svg viewBox="0 0 280 100" style="width:100%; height:90px; border-radius:6px; background:#040914;">
