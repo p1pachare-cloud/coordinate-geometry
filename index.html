@@ -1991,36 +1991,48 @@
       slopeCtx.beginPath(); slopeCtx.moveTo(0, cy); slopeCtx.lineTo(w, cy); slopeCtx.stroke();
 
       const rad = (slopeAngle * Math.PI) / 180;
-      const m = Math.tan(rad);
-      const mPerp = -1 / m;
+      const L = Math.max(w, h) * 4; // Extend lines edge-to-edge across the entire viewport
 
-      // Primary Line
+      // Primary Line (cyan) passing through Y-intercept (0, slopeC)
+      const pY = cy - slopeC * scale;
+      const pX1 = cx - L * Math.cos(rad);
+      const pY1 = pY + L * Math.sin(rad);
+      const pX2 = cx + L * Math.cos(rad);
+      const pY2 = pY - L * Math.sin(rad);
+
       slopeCtx.strokeStyle = '#38bdf8';
       slopeCtx.lineWidth = 3;
       slopeCtx.beginPath();
-      const x1 = -15, y1 = m * x1 + slopeC;
-      const x2 = 15, y2 = m * x2 + slopeC;
-      slopeCtx.moveTo(cx + x1 * scale, cy - y1 * scale);
-      slopeCtx.lineTo(cx + x2 * scale, cy - y2 * scale);
+      slopeCtx.moveTo(pX1, pY1);
+      slopeCtx.lineTo(pX2, pY2);
       slopeCtx.stroke();
 
-      // Perpendicular Reference Line
+      // Perpendicular Reference Line (purple dashed) at rad + PI/2
+      const radPerp = rad + Math.PI / 2;
+      const perpX1 = cx - L * Math.cos(radPerp);
+      const perpY1 = pY + L * Math.sin(radPerp);
+      const perpX2 = cx + L * Math.cos(radPerp);
+      const perpY2 = pY - L * Math.sin(radPerp);
+
       slopeCtx.strokeStyle = '#a855f7';
       slopeCtx.lineWidth = 2;
       slopeCtx.setLineDash([4, 4]);
       slopeCtx.beginPath();
-      const px1 = -15, py1 = mPerp * px1 + slopeC;
-      const px2 = 15, py2 = mPerp * px2 + slopeC;
-      slopeCtx.moveTo(cx + px1 * scale, cy - py1 * scale);
-      slopeCtx.lineTo(cx + px2 * scale, cy - py2 * scale);
+      slopeCtx.moveTo(perpX1, perpY1);
+      slopeCtx.lineTo(perpX2, perpY2);
       slopeCtx.stroke();
       slopeCtx.setLineDash([]);
 
       slopeCtx.restore();
 
-      document.getElementById('slope-m-out').innerText = m.toFixed(2);
-      document.getElementById('slope-perp-out').innerText = isFinite(mPerp) ? mPerp.toFixed(2) : "∞";
-      document.getElementById('slope-eq-out').innerText = `y = ${m.toFixed(2)}x ${slopeC >= 0 ? '+' : ''} ${slopeC.toFixed(1)}`;
+      const m = Math.abs(slopeAngle - 90) < 0.1 ? Infinity : Math.tan(rad);
+      const mPerp = isFinite(m) && Math.abs(m) > 0.0001 ? -1 / m : (m === 0 ? Infinity : 0);
+
+      document.getElementById('slope-m-out').innerText = isFinite(m) ? m.toFixed(2) : "Undefined";
+      document.getElementById('slope-perp-out').innerText = isFinite(mPerp) ? mPerp.toFixed(2) : "Undefined";
+      document.getElementById('slope-eq-out').innerText = isFinite(m) 
+        ? `y = ${m.toFixed(2)}x ${slopeC >= 0 ? '+' : ''} ${slopeC.toFixed(1)}` 
+        : `x = 0.0 (Vertical Line)`;
     }
 
     document.getElementById('slope-angle-slider').addEventListener('input', (e) => {
