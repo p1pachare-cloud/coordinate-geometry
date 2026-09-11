@@ -1816,25 +1816,25 @@
       let lx = x + 8;
       let ly = y - 8;
 
-      if (lx + textWidth > canvasWidth - 6) {
+      if (lx + textWidth > canvasWidth - 10) {
         lx = x - textWidth - 8;
       }
-      if (lx < 6) {
-        lx = 6;
+      if (lx < 10) {
+        lx = 10;
       }
-      if (ly - textHeight < 6) {
-        ly = y + 16;
+      if (ly - textHeight < 10) {
+        ly = y + 18;
       }
-      if (ly > canvasHeight - 6) {
-        ly = canvasHeight - 6;
+      if (ly > canvasHeight - 10) {
+        ly = canvasHeight - 10;
       }
 
       // Draw high-contrast backdrop box
-      ctx.fillStyle = 'rgba(7, 13, 25, 0.85)';
-      ctx.fillRect(lx - 3, ly - 10, textWidth + 6, textHeight + 4);
+      ctx.fillStyle = 'rgba(7, 13, 25, 0.9)';
+      ctx.fillRect(lx - 4, ly - 11, textWidth + 8, textHeight + 5);
       ctx.strokeStyle = color;
       ctx.lineWidth = 1;
-      ctx.strokeRect(lx - 3, ly - 10, textWidth + 6, textHeight + 4);
+      ctx.strokeRect(lx - 4, ly - 11, textWidth + 8, textHeight + 5);
 
       ctx.fillStyle = color;
       ctx.fillText(text, lx, ly);
@@ -1852,10 +1852,11 @@
       const w = distCanvas.width, h = distCanvas.height;
       const cx = w / 2, cy = h / 2;
 
-      // Dynamic scale to guarantee coordinates (-10 to +10) stay inside canvas with padding
-      const maxCoord = 11.5;
-      const scaleX = (w - 70) / (2 * maxCoord);
-      const scaleY = (h - 50) / (2 * maxCoord);
+      // Dynamic adaptive scale ensuring ANY point (-10 to +10) has a generous 50px buffer inside graph
+      const maxVal = Math.max(Math.abs(distAX), Math.abs(distAY), Math.abs(distBX), Math.abs(distBY), 4);
+      const maxCoord = maxVal + 4.5;
+      const scaleX = (w - 80) / (2 * maxCoord);
+      const scaleY = (h - 60) / (2 * maxCoord);
       const scale = Math.min(scaleX, scaleY);
 
       distCtx.clearRect(0, 0, w, h);
@@ -1934,17 +1935,17 @@
       const px = (secM * bx + secN * ax) / (secM + secN);
       const py = (secM * by + secN * ay) / (secM + secN);
 
-      // SVG map coordinates with safe padding bounds: A=(55, 155), B=(285, 45)
-      const svgX = 55 + (px - ax) / (bx - ax) * 230;
-      const svgY = 155 - (py - ay) / (by - ay) * 110;
+      // SVG map coordinates with comfortable padding bounds: A=(65, 145), B=(275, 45)
+      const svgX = 65 + (px - ax) / (bx - ax) * 210;
+      const svgY = 145 - (py - ay) / (by - ay) * 90;
 
       const pCircle = document.getElementById('sec-point-p');
       pCircle.setAttribute('cx', svgX);
       pCircle.setAttribute('cy', svgY);
 
       const pText = document.getElementById('sec-p-text');
-      const textY = svgY < 35 ? svgY + 22 : svgY - 12;
-      const textX = Math.min(290, Math.max(50, svgX));
+      const textY = svgY < 40 ? svgY + 22 : svgY - 12;
+      const textX = Math.min(280, Math.max(60, svgX));
       pText.setAttribute('x', textX);
       pText.setAttribute('y', textY);
       pText.textContent = `P(${px.toFixed(1)}, ${py.toFixed(1)})`;
@@ -1975,7 +1976,7 @@
       slopeCanvas.height = 210;
       const w = slopeCanvas.width, h = slopeCanvas.height;
       const cx = w / 2, cy = h / 2;
-      const scale = Math.min((w - 70) / 20, (h - 50) / 20);
+      const scale = Math.min((w - 90) / 20, (h - 70) / 20);
 
       slopeCtx.clearRect(0, 0, w, h);
       slopeCtx.save();
@@ -2044,8 +2045,9 @@
       areaCanvas.height = 190;
       const w = areaCanvas.width, h = areaCanvas.height;
       const cx = w / 2, cy = h / 2 + 15;
-      const maxCoord = 7.5;
-      const scale = Math.min((w - 80) / (2 * maxCoord), (h - 50) / (2 * maxCoord));
+      const maxVal = Math.max(Math.abs(areaX2), Math.abs(areaY2), Math.abs(areaX3), Math.abs(areaY3), 4);
+      const maxCoord = maxVal + 4.5;
+      const scale = Math.min((w - 90) / (2 * maxCoord), (h - 70) / (2 * maxCoord));
 
       areaCtx.clearRect(0, 0, w, h);
       areaCtx.save();
@@ -2134,8 +2136,9 @@
       transCanvas.height = 200;
       const w = transCanvas.width, h = transCanvas.height;
       const cx = w / 2, cy = h / 2;
-      const maxDist = Math.abs(transH) + transScale * Math.SQRT2 + 1;
-      const scale = Math.min((w - 70) / (2 * maxDist), (h - 50) / (2 * maxDist));
+      const maxDist = Math.abs(transH) + transScale * Math.SQRT2;
+      const maxCoord = Math.max(maxDist + 3.5, 4);
+      const scale = Math.min((w - 90) / (2 * maxCoord), (h - 70) / (2 * maxCoord));
 
       transCtx.clearRect(0, 0, w, h);
       transCtx.save();
