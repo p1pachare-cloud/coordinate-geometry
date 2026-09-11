@@ -1806,6 +1806,41 @@
       else { document.exitFullscreen(); }
     };
 
+    /* ================= HELPER: SMART CANVAS LABEL POSITIONING ================= */
+    function drawSmartLabel(ctx, text, x, y, color, canvasWidth, canvasHeight) {
+      ctx.save();
+      ctx.font = 'bold 11px sans-serif';
+      const textWidth = ctx.measureText(text).width;
+      const textHeight = 12;
+      
+      let lx = x + 8;
+      let ly = y - 8;
+
+      if (lx + textWidth > canvasWidth - 6) {
+        lx = x - textWidth - 8;
+      }
+      if (lx < 6) {
+        lx = 6;
+      }
+      if (ly - textHeight < 6) {
+        ly = y + 16;
+      }
+      if (ly > canvasHeight - 6) {
+        ly = canvasHeight - 6;
+      }
+
+      // Draw high-contrast backdrop box
+      ctx.fillStyle = 'rgba(7, 13, 25, 0.85)';
+      ctx.fillRect(lx - 3, ly - 10, textWidth + 6, textHeight + 4);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(lx - 3, ly - 10, textWidth + 6, textHeight + 4);
+
+      ctx.fillStyle = color;
+      ctx.fillText(text, lx, ly);
+      ctx.restore();
+    }
+
     /* ================= CHAPTER 1: DISTANCE CANVAS SIMULATOR ================= */
     const distCanvas = document.getElementById('dist-canvas');
     const distCtx = distCanvas.getContext('2d');
@@ -1816,17 +1851,26 @@
       distCanvas.height = 220;
       const w = distCanvas.width, h = distCanvas.height;
       const cx = w / 2, cy = h / 2;
-      const scale = 18;
+
+      // Dynamic scale to guarantee coordinates (-10 to +10) stay inside canvas with padding
+      const maxCoord = 11.5;
+      const scaleX = (w - 70) / (2 * maxCoord);
+      const scaleY = (h - 50) / (2 * maxCoord);
+      const scale = Math.min(scaleX, scaleY);
 
       distCtx.clearRect(0, 0, w, h);
+      distCtx.save();
+      distCtx.beginPath();
+      distCtx.rect(0, 0, w, h);
+      distCtx.clip();
 
       // Grid Lines
       distCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
       distCtx.lineWidth = 1;
-      for (let x = 0; x < w; x += scale) { distCtx.beginPath(); distCtx.moveTo(x, 0); distCtx.lineTo(x, h); distCtx.stroke(); }
-      for (let y = 0; y < h; y += scale) { distCtx.beginPath(); distCtx.moveTo(0, y); distCtx.lineTo(w, y); distCtx.stroke(); }
+      for (let x = cx % scale; x < w; x += scale) { distCtx.beginPath(); distCtx.moveTo(x, 0); distCtx.lineTo(x, h); distCtx.stroke(); }
+      for (let y = cy % scale; y < h; y += scale) { distCtx.beginPath(); distCtx.moveTo(0, y); distCtx.lineTo(w, y); distCtx.stroke(); }
 
-      // Axes
+      // Major Axes
       distCtx.strokeStyle = '#38bdf8';
       distCtx.lineWidth = 2;
       distCtx.beginPath(); distCtx.moveTo(cx, 0); distCtx.lineTo(cx, h); distCtx.stroke();
@@ -1853,13 +1897,13 @@
       // Points A and B
       distCtx.fillStyle = '#10b981';
       distCtx.beginPath(); distCtx.arc(ax, ay, 6, 0, Math.PI * 2); distCtx.fill();
-      distCtx.fillStyle = '#fff'; distCtx.font = '11px sans-serif';
-      distCtx.fillText(`A(${distAX}, ${distAY})`, ax - 25, ay - 10);
+      drawSmartLabel(distCtx, `A(${distAX}, ${distAY})`, ax, ay, '#10b981', w, h);
 
       distCtx.fillStyle = '#f43f5e';
       distCtx.beginPath(); distCtx.arc(bx, by, 6, 0, Math.PI * 2); distCtx.fill();
-      distCtx.fillStyle = '#fff';
-      distCtx.fillText(`B(${distBX}, ${distBY})`, bx + 10, by + 15);
+      drawSmartLabel(distCtx, `B(${distBX}, ${distBY})`, bx, by, '#f43f5e', w, h);
+
+      distCtx.restore();
 
       // Calculations
       const dx = Math.abs(distBX - distAX);
@@ -1890,17 +1934,19 @@
       const px = (secM * bx + secN * ax) / (secM + secN);
       const py = (secM * by + secN * ay) / (secM + secN);
 
-      // SVG map coordinates: A=(40, 160), B=(300, 50)
-      const svgX = 40 + (px - ax) / (bx - ax) * 260;
-      const svgY = 160 - (py - ay) / (by - ay) * 110;
+      // SVG map coordinates with safe padding bounds: A=(55, 155), B=(285, 45)
+      const svgX = 55 + (px - ax) / (bx - ax) * 230;
+      const svgY = 155 - (py - ay) / (by - ay) * 110;
 
       const pCircle = document.getElementById('sec-point-p');
       pCircle.setAttribute('cx', svgX);
       pCircle.setAttribute('cy', svgY);
 
       const pText = document.getElementById('sec-p-text');
-      pText.setAttribute('x', svgX);
-      pText.setAttribute('y', svgY - 15);
+      const textY = svgY < 35 ? svgY + 22 : svgY - 12;
+      const textX = Math.min(290, Math.max(50, svgX));
+      pText.setAttribute('x', textX);
+      pText.setAttribute('y', textY);
       pText.textContent = `P(${px.toFixed(1)}, ${py.toFixed(1)})`;
 
       document.getElementById('sec-px-out').innerText = px.toFixed(1);
@@ -1929,9 +1975,13 @@
       slopeCanvas.height = 210;
       const w = slopeCanvas.width, h = slopeCanvas.height;
       const cx = w / 2, cy = h / 2;
-      const scale = 20;
+      const scale = Math.min((w - 70) / 20, (h - 50) / 20);
 
       slopeCtx.clearRect(0, 0, w, h);
+      slopeCtx.save();
+      slopeCtx.beginPath();
+      slopeCtx.rect(0, 0, w, h);
+      slopeCtx.clip();
 
       // Axes
       slopeCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
@@ -1947,8 +1997,8 @@
       slopeCtx.strokeStyle = '#38bdf8';
       slopeCtx.lineWidth = 3;
       slopeCtx.beginPath();
-      const x1 = -10, y1 = m * x1 + slopeC;
-      const x2 = 10, y2 = m * x2 + slopeC;
+      const x1 = -15, y1 = m * x1 + slopeC;
+      const x2 = 15, y2 = m * x2 + slopeC;
       slopeCtx.moveTo(cx + x1 * scale, cy - y1 * scale);
       slopeCtx.lineTo(cx + x2 * scale, cy - y2 * scale);
       slopeCtx.stroke();
@@ -1958,12 +2008,14 @@
       slopeCtx.lineWidth = 2;
       slopeCtx.setLineDash([4, 4]);
       slopeCtx.beginPath();
-      const px1 = -10, py1 = mPerp * px1 + slopeC;
-      const px2 = 10, py2 = mPerp * px2 + slopeC;
+      const px1 = -15, py1 = mPerp * px1 + slopeC;
+      const px2 = 15, py2 = mPerp * px2 + slopeC;
       slopeCtx.moveTo(cx + px1 * scale, cy - py1 * scale);
       slopeCtx.lineTo(cx + px2 * scale, cy - py2 * scale);
       slopeCtx.stroke();
       slopeCtx.setLineDash([]);
+
+      slopeCtx.restore();
 
       document.getElementById('slope-m-out').innerText = m.toFixed(2);
       document.getElementById('slope-perp-out').innerText = isFinite(mPerp) ? mPerp.toFixed(2) : "∞";
@@ -1991,10 +2043,15 @@
       areaCanvas.width = areaCanvas.parentElement.clientWidth;
       areaCanvas.height = 190;
       const w = areaCanvas.width, h = areaCanvas.height;
-      const cx = w / 2, cy = h / 2 + 30;
-      const scale = 18;
+      const cx = w / 2, cy = h / 2 + 15;
+      const maxCoord = 7.5;
+      const scale = Math.min((w - 80) / (2 * maxCoord), (h - 50) / (2 * maxCoord));
 
       areaCtx.clearRect(0, 0, w, h);
+      areaCtx.save();
+      areaCtx.beginPath();
+      areaCtx.rect(0, 0, w, h);
+      areaCtx.clip();
 
       // Axes
       areaCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
@@ -2022,8 +2079,10 @@
       areaCtx.fillStyle = '#22d3ee';
       [ {x: ax, y: ay, label: 'A(0,0)'}, {x: bx, y: by, label: `B(${areaX2},${areaY2})`}, {x: cx3, y: cy3, label: `C(${areaX3},${areaY3})`} ].forEach(pt => {
         areaCtx.beginPath(); areaCtx.arc(pt.x, pt.y, 5, 0, Math.PI * 2); areaCtx.fill();
-        areaCtx.fillText(pt.label, pt.x + 8, pt.y - 5);
+        drawSmartLabel(areaCtx, pt.label, pt.x, pt.y, '#22d3ee', w, h);
       });
+
+      areaCtx.restore();
 
       // Shoelace Area Calculation
       const calcArea = 0.5 * Math.abs(0 * (areaY2 - areaY3) + areaX2 * (areaY3 - 0) + areaX3 * (0 - areaY2));
@@ -2075,9 +2134,14 @@
       transCanvas.height = 200;
       const w = transCanvas.width, h = transCanvas.height;
       const cx = w / 2, cy = h / 2;
-      const scale = 18;
+      const maxDist = Math.abs(transH) + transScale * Math.SQRT2 + 1;
+      const scale = Math.min((w - 70) / (2 * maxDist), (h - 50) / (2 * maxDist));
 
       transCtx.clearRect(0, 0, w, h);
+      transCtx.save();
+      transCtx.beginPath();
+      transCtx.rect(0, 0, w, h);
+      transCtx.clip();
 
       // Axes
       transCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
@@ -2114,6 +2178,8 @@
       transCtx.closePath();
       transCtx.fill();
       transCtx.stroke();
+
+      transCtx.restore();
 
       document.getElementById('trans-det-out').innerText = (transScale * transScale).toFixed(2);
       document.getElementById('trans-matrix-out').innerText = `Rot: ${transRot}° | Trans: (${transH}, 0)`;
